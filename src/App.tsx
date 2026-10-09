@@ -1,0 +1,359 @@
+﻿import { useEffect, useState } from 'react'
+import { api, configurarExpiracionSesion } from './api/clienteApi'
+import type { DatosCliente, DatosCuenta } from './api/tipos'
+import { Administracion } from './componentes/Administracion'
+import { Aviso, Icono, Marca, Vacio } from './componentes/Comun'
+import { DetalleCliente } from './componentes/DetalleCliente'
+import { FormularioCliente } from './componentes/FormularioCliente'
+import { Ingreso } from './componentes/Ingreso'
+import { obtenerMensajeError, tienePermiso } from './utilidades'
+import './App.css'
+
+type Ruta = { tipo: 'clientes' } | { tipo: 'cliente'; uuid: string } | { tipo: 'administracion' }
+
+/** El hash permite conservar la vista al recargar sin exigir rutas al servidor estático. */
+function leerRuta(): Ruta {
+  const ruta = window.location.hash.slice(1)
+  if (ruta === '/administracion') return { tipo: 'administracion' }
+  const cliente = /^\/clientes\/([0-9a-f-]+)$/i.exec(ruta)
+  if (cliente) return { tipo: 'cliente', uuid: cliente[1] }
+  return { tipo: 'clientes' }
+}
+
+function navegar(ruta: string) {
+  window.location.hash = ruta
+}
+
+function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
+  const [clientes, cambiarClientes] = useState<DatosCliente[]>([])
+  const [cargando, cambiarCargando] = useState(true)
+  const [error, cambiarError] = useState('')
+  const [busqueda, cambiarBusqueda] = useState('')
+  const [mostrarFormulario, cambiarMostrarFormulario] = useState(false)
+  const [revision, cambiarRevision] = useState(0)
+  const puedeVer = tienePermiso(cuenta.permisos, 'CLIENTES_VER')
+  const puedeCrear =
+    cuenta.tipoCuenta === 'ORGANIZACION' && tienePermiso(cuenta.permisos, 'CLIENTES_CREAR')
+
+  useEffect(() => {
+    if (!puedeVer) return
+    let vigente = true
+    api.clientes
+      .listar()
+      .then((datos) => {
+        if (vigente) cambiarClientes(datos)
+      })
+      .catch((causa) => {
+        if (vigente) cambiarError(obtenerMensajeError(causa))
+      })
+      .finally(() => {
+        if (vigente) cambiarCargando(false)
+      })
+    return () => {
+      vigente = false
+    }
+  }, [puedeVer, revision])
+
+  const filtrados = clientes.filter((cliente) => {
+    const termino = busqueda.trim().toLocaleLowerCase('es')
+    return (
+      !termino ||
+      [cliente.nombre, cliente.nombreMarca, cliente.rubro].some((valor) =>
+        valor.toLocaleLowerCase('es').includes(termino),
+      )
+    )
+  })
+
+  function reintentar() {
+    cambiarCargando(true)
+    cambiarError('')
+    cambiarRevision((actual) => actual + 1)
+  }
+
+  return (
+    <div className="contenido-limitado">
+      <div className="encabezado-pagina">
+        <div>
+          <span className="sobrelinea">ESPACIO DE TRABAJO</span>
+          <h1>Clientes monitoreados</h1>
+          <p>
+            {cuenta.tipoCuenta === 'PLATAFORMA'
+              ? 'Vista global de clientes registrados.'
+              : 'Administrá las marcas y las consultas de tu organización.'}
+          </p>
+        </div>
+        {puedeCrear && (
+          <button
+            type="button"
+            className="boton boton-primario"
+            onClick={() => cambiarMostrarFormulario(true)}
+          >
+            <Icono nombre="mas" tamano={18} /> Nuevo cliente
+          </button>
+        )}
+      </div>
+      {mostrarFormulario && (
+        <FormularioCliente
+          alCancelar={() => cambiarMostrarFormulario(false)}
+          alCrear={(cliente) => {
+            cambiarMostrarFormulario(false)
+            navegar(`/clientes/${cliente.uuid}`)
+          }}
+        />
+      )}
+      {!puedeVer ? (
+        <Aviso tipo="informacion">Tu cuenta no tiene permiso para ver clientes monitoreados.</Aviso>
+      ) : (
+        <>
+          <div className="barra-listado">
+            <div className="barra-listado-titulo">
+              <span className="sobrelinea">CARTERA ACTUAL</span>
+              <h2>
+                Todos los clientes <span className="contador">{clientes.length}</span>
+              </h2>
+            </div>
+            <label className="buscador">
+              <Icono nombre="buscar" tamano={18} />
+              <span className="sr-only">Buscar clientes</span>
+              <input
+                value={busqueda}
+                onChange={(evento) => cambiarBusqueda(evento.target.value)}
+                placeholder="Buscar por nombre, marca o rubro"
+              />
+            </label>
+          </div>
+          {cargando ? (
+            <div className="cargando-bloque">Cargando clientes…</div>
+          ) : error ? (
+            <div>
+              <Aviso>{error}</Aviso>
+              <button
+                className="boton boton-secundario reintentar"
+                type="button"
+                onClick={reintentar}
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : filtrados.length === 0 ? (
+            <Vacio
+              icono="clientes"
+              titulo={clientes.length === 0 ? 'Todavía no hay clientes' : 'Sin resultados'}
+              descripcion={
+                clientes.length === 0
+                  ? 'Los clientes que se creen aparecerán acá.'
+                  : 'Probá con otro nombre, marca o rubro.'
+              }
+              accion={
+                clientes.length === 0 &&
+                puedeCrear && (
+                  <button
+                    className="boton boton-primario"
+                    type="button"
+                    onClick={() => cambiarMostrarFormulario(true)}
+                  >
+                    <Icono nombre="mas" tamano={17} /> Crear primer cliente
+                  </button>
+                )
+              }
+            />
+          ) : (
+            <div className="clientes-tabla" role="list">
+              {filtrados.map((cliente) => (
+                <button
+                  className="cliente-fila"
+                  type="button"
+                  role="listitem"
+                  key={cliente.uuid}
+                  onClick={() => navegar(`/clientes/${cliente.uuid}`)}
+                >
+                  <span className="cliente-avatar">
+                    {cliente.nombreMarca.trim().charAt(0).toLocaleUpperCase('es')}
+                  </span>
+                  <span className="cliente-identidad">
+                    <strong>{cliente.nombre}</strong>
+                    <small>{cliente.nombreMarca}</small>
+                  </span>
+                  <span className="cliente-rubro">{cliente.rubro}</span>
+                  <span className="cliente-mercado">
+                    {cliente.pais} · {cliente.idioma}
+                  </span>
+                  <span className={`etiqueta etiqueta-${cliente.estado.toLowerCase()}`}>
+                    {cliente.estado === 'ACTIVO' ? 'Activo' : 'Archivado'}
+                  </span>
+                  <Icono nombre="flecha" tamano={18} />
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function App() {
+  const [cuenta, cambiarCuenta] = useState<DatosCuenta | null>(null)
+  const [restaurando, cambiarRestaurando] = useState(true)
+  const [ruta, cambiarRuta] = useState<Ruta>(leerRuta)
+  const [errorSalida, cambiarErrorSalida] = useState('')
+
+  useEffect(() => {
+    const actualizarRuta = () => cambiarRuta(leerRuta())
+    window.addEventListener('hashchange', actualizarRuta)
+    return () => window.removeEventListener('hashchange', actualizarRuta)
+  }, [])
+
+  useEffect(() => {
+    let vigente = true
+    configurarExpiracionSesion(() => {
+      if (vigente) cambiarCuenta(null)
+    })
+    api
+      .restaurarSesion()
+      .then((datos) => {
+        if (vigente) cambiarCuenta(datos)
+      })
+      .catch(() => {
+        if (vigente) cambiarCuenta(null)
+      })
+      .finally(() => {
+        if (vigente) cambiarRestaurando(false)
+      })
+    return () => {
+      vigente = false
+    }
+  }, [])
+
+  async function salir() {
+    cambiarErrorSalida('')
+    try {
+      await api.salir()
+      cambiarCuenta(null)
+      navegar('/clientes')
+    } catch (causa) {
+      cambiarCuenta(null)
+      cambiarErrorSalida(obtenerMensajeError(causa))
+    }
+  }
+
+  if (restaurando)
+    return (
+      <div className="pantalla-carga">
+        <Marca />
+        <span>Preparando tu espacio de trabajo…</span>
+      </div>
+    )
+  if (!cuenta)
+    return (
+      <>
+        <Ingreso
+          alIngresar={(datos) => {
+            cambiarErrorSalida('')
+            cambiarCuenta(datos)
+          }}
+        />
+        {errorSalida && (
+          <div className="error-salida">
+            <Aviso>
+              {errorSalida} La sesión local se cerró; el cierre remoto no pudo confirmarse.
+            </Aviso>
+          </div>
+        )}
+      </>
+    )
+
+  const esAdministrador =
+    cuenta.roles.includes('SYSADMIN') &&
+    (tienePermiso(cuenta.permisos, 'ORGANIZACIONES_CREAR') ||
+      tienePermiso(cuenta.permisos, 'USUARIOS_CREAR'))
+  const nombreVista =
+    ruta.tipo === 'administracion'
+      ? 'Administración'
+      : ruta.tipo === 'cliente'
+        ? 'Detalle del cliente'
+        : 'Clientes'
+
+  return (
+    <div className="aplicacion">
+      <aside className="barra-lateral">
+        <div className="lateral-marca">
+          <Marca compacta />
+        </div>
+        <div className="lateral-contenido">
+          <span className="lateral-grupo">ESPACIO DE TRABAJO</span>
+          <nav aria-label="Navegación principal">
+            <button
+              type="button"
+              className={`nav-item ${ruta.tipo !== 'administracion' ? 'nav-item-activo' : ''}`}
+              onClick={() => navegar('/clientes')}
+            >
+              <Icono nombre="clientes" tamano={19} /> Clientes
+            </button>
+            {esAdministrador && (
+              <button
+                type="button"
+                className={`nav-item ${ruta.tipo === 'administracion' ? 'nav-item-activo' : ''}`}
+                onClick={() => navegar('/administracion')}
+              >
+                <Icono nombre="ajustes" tamano={19} /> Administración
+              </button>
+            )}
+          </nav>
+        </div>
+        <div className="lateral-pie">
+          <div className="lateral-cuenta">
+            <span className="cuenta-avatar">
+              {cuenta.usuario.charAt(0).toLocaleUpperCase('es')}
+            </span>
+            <span>
+              <strong title={cuenta.usuario}>{cuenta.usuario}</strong>
+              <small>{cuenta.roles.join(', ') || cuenta.tipoCuenta}</small>
+            </span>
+          </div>
+          <button className="nav-item cerrar-sesion" type="button" onClick={salir}>
+            <Icono nombre="salir" tamano={18} /> Cerrar sesión
+          </button>
+        </div>
+      </aside>
+      <div className="area-principal">
+        <header className="barra-superior">
+          <span>
+            GEOTRACK <b>/</b> {nombreVista}
+          </span>
+          <div>
+            <span className="indicador-conexion" />{' '}
+            {cuenta.tipoCuenta === 'PLATAFORMA' ? 'Cuenta de plataforma' : 'Organización'}
+          </div>
+        </header>
+        <main className="contenido-principal">
+          {ruta.tipo === 'administracion' ? (
+            esAdministrador ? (
+              <Administracion cuenta={cuenta} />
+            ) : (
+              <Aviso tipo="informacion">Tu cuenta no tiene acceso a administración.</Aviso>
+            )
+          ) : ruta.tipo === 'cliente' ? (
+            tienePermiso(cuenta.permisos, 'CLIENTES_VER') ? (
+              <DetalleCliente
+                key={ruta.uuid}
+                clienteUuid={ruta.uuid}
+                cuenta={cuenta}
+                alVolver={() => navegar('/clientes')}
+              />
+            ) : (
+              <Aviso tipo="informacion">Tu cuenta no tiene permiso para ver clientes.</Aviso>
+            )
+          ) : (
+            <ListadoClientes cuenta={cuenta} />
+          )}
+        </main>
+        <footer className="pie-pagina">
+          GEOTRACK <span>·</span> ORGANIZACIÓN DE CONSULTAS GEO
+        </footer>
+      </div>
+    </div>
+  )
+}
+
+export default App

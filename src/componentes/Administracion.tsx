@@ -1,0 +1,281 @@
+import { useEffect, useState, type FormEvent } from 'react'
+import { api } from '../api/clienteApi'
+import type { DatosCuenta, DatosOrganizacion, RespuestaUsuario } from '../api/tipos'
+import { obtenerMensajeError, tienePermiso } from '../utilidades'
+import { Aviso, Icono } from './Comun'
+
+export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
+  const puedeVerOrganizaciones =
+    cuenta.roles.includes('SYSADMIN') && tienePermiso(cuenta.permisos, 'ORGANIZACIONES_VER')
+  const puedeCrearOrganizacion =
+    cuenta.roles.includes('SYSADMIN') && tienePermiso(cuenta.permisos, 'ORGANIZACIONES_CREAR')
+  const puedeCrearUsuario =
+    cuenta.roles.includes('SYSADMIN') && tienePermiso(cuenta.permisos, 'USUARIOS_CREAR')
+  const [nombreOrganizacion, cambiarNombreOrganizacion] = useState('')
+  const [organizaciones, cambiarOrganizaciones] = useState<DatosOrganizacion[]>([])
+  const [organizacionCreada, cambiarOrganizacionCreada] = useState<DatosOrganizacion | null>(null)
+  const [organizacionUuid, cambiarOrganizacionUuid] = useState('')
+  const [cargandoOrganizaciones, cambiarCargandoOrganizaciones] = useState(puedeVerOrganizaciones)
+  const [errorOrganizaciones, cambiarErrorOrganizaciones] = useState('')
+  const [revisionOrganizaciones, cambiarRevisionOrganizaciones] = useState(0)
+  const [nombreUsuario, cambiarNombreUsuario] = useState('')
+  const [correo, cambiarCorreo] = useState('')
+  const [clave, cambiarClave] = useState('')
+  const [rol, cambiarRol] = useState<'PROPIETARIO' | 'MIEMBRO'>('PROPIETARIO')
+  const [usuarioCreado, cambiarUsuarioCreado] = useState<RespuestaUsuario | null>(null)
+  const [errorOrganizacion, cambiarErrorOrganizacion] = useState('')
+  const [errorUsuario, cambiarErrorUsuario] = useState('')
+  const [guardandoOrganizacion, cambiarGuardandoOrganizacion] = useState(false)
+  const [guardandoUsuario, cambiarGuardandoUsuario] = useState(false)
+
+  useEffect(() => {
+    if (!puedeVerOrganizaciones) return
+    let vigente = true
+    api.administracion
+      .listarOrganizaciones()
+      .then((datos) => {
+        if (vigente) cambiarOrganizaciones(datos)
+      })
+      .catch((causa) => {
+        if (vigente) cambiarErrorOrganizaciones(obtenerMensajeError(causa))
+      })
+      .finally(() => {
+        if (vigente) cambiarCargandoOrganizaciones(false)
+      })
+    return () => {
+      vigente = false
+    }
+  }, [puedeVerOrganizaciones, revisionOrganizaciones])
+
+  /** Incorpora el alta al selector y descarta un listado iniciado antes de crearla. */
+  async function crearOrganizacion(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault()
+    cambiarErrorOrganizacion('')
+    cambiarOrganizacionCreada(null)
+    cambiarGuardandoOrganizacion(true)
+    try {
+      const creada = await api.administracion.crearOrganizacion(nombreOrganizacion.trim())
+      cambiarOrganizacionCreada(creada)
+      cambiarOrganizaciones((actuales) =>
+        [...actuales, creada].sort((primera, segunda) =>
+          primera.nombre.localeCompare(segunda.nombre, 'es'),
+        ),
+      )
+      cambiarOrganizacionUuid(creada.uuid)
+      if (cargandoOrganizaciones) cambiarRevisionOrganizaciones((actual) => actual + 1)
+      cambiarNombreOrganizacion('')
+    } catch (causa) {
+      cambiarErrorOrganizacion(obtenerMensajeError(causa))
+    } finally {
+      cambiarGuardandoOrganizacion(false)
+    }
+  }
+
+  async function crearUsuario(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault()
+    cambiarErrorUsuario('')
+    cambiarUsuarioCreado(null)
+    if (!organizaciones.some((organizacion) => organizacion.uuid === organizacionUuid)) {
+      cambiarErrorUsuario('Seleccioná una organización activa.')
+      return
+    }
+    cambiarGuardandoUsuario(true)
+    try {
+      const creado = await api.administracion.crearUsuario(organizacionUuid, {
+        nombre: nombreUsuario.trim(),
+        correoElectronico: correo.trim(),
+        clave,
+        rol,
+      })
+      cambiarUsuarioCreado(creado)
+      cambiarNombreUsuario('')
+      cambiarCorreo('')
+      cambiarClave('')
+    } catch (causa) {
+      cambiarErrorUsuario(obtenerMensajeError(causa))
+    } finally {
+      cambiarGuardandoUsuario(false)
+    }
+  }
+
+  return (
+    <div className="contenido-limitado">
+      <div className="encabezado-pagina">
+        <div>
+          <span className="sobrelinea">PLATAFORMA</span>
+          <h1>Administración</h1>
+          <p>Altas de organizaciones y usuarios.</p>
+        </div>
+      </div>
+      {!puedeCrearOrganizacion && !puedeCrearUsuario && (
+        <Aviso tipo="informacion">
+          Tu cuenta no tiene permisos de alta de organizaciones ni usuarios.
+        </Aviso>
+      )}
+      <div className="admin-grilla">
+        {puedeCrearOrganizacion && (
+          <section className="tarjeta admin-tarjeta">
+            <div className="admin-tarjeta-icono">
+              <Icono nombre="capas" />
+            </div>
+            <span className="sobrelinea">PASO 01</span>
+            <h2>Crear organización</h2>
+            <p className="texto-secundario">
+              La organización se crea vacía. Luego podés dar de alta su primer usuario.
+            </p>
+            <form className="formulario apilado" onSubmit={crearOrganizacion}>
+              <label>
+                Nombre de la organización
+                <input
+                  required
+                  maxLength={200}
+                  value={nombreOrganizacion}
+                  onChange={(evento) => cambiarNombreOrganizacion(evento.target.value)}
+                  placeholder="Ej. Agencia Norte"
+                />
+              </label>
+              {errorOrganizacion && <Aviso>{errorOrganizacion}</Aviso>}
+              {organizacionCreada && (
+                <Aviso tipo="exito">
+                  Organización creada: <strong>{organizacionCreada.nombre}</strong>
+                </Aviso>
+              )}
+              <button
+                type="submit"
+                className="boton boton-primario"
+                disabled={guardandoOrganizacion}
+              >
+                {guardandoOrganizacion ? 'Creando…' : 'Crear organización'}{' '}
+                <Icono nombre="flecha" tamano={17} />
+              </button>
+            </form>
+          </section>
+        )}
+        {puedeCrearUsuario && (
+          <section className="tarjeta admin-tarjeta">
+            <div className="admin-tarjeta-icono">
+              <Icono nombre="clientes" />
+            </div>
+            <span className="sobrelinea">PASO 02</span>
+            <h2>Crear usuario</h2>
+            <p className="texto-secundario">
+              El primer usuario de una organización debe tener el rol Propietario.
+            </p>
+            <form className="formulario apilado" onSubmit={crearUsuario}>
+              <label>
+                Organización
+                <select
+                  required
+                  value={organizacionUuid}
+                  onChange={(evento) => cambiarOrganizacionUuid(evento.target.value)}
+                >
+                  <option value="" disabled>
+                    {cargandoOrganizaciones
+                      ? 'Cargando organizaciones…'
+                      : organizaciones.length === 0
+                        ? 'No hay organizaciones activas'
+                        : 'Seleccioná una organización'}
+                  </option>
+                  {organizaciones.map((organizacion) => (
+                    <option key={organizacion.uuid} value={organizacion.uuid}>
+                      {organizacion.nombre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {errorOrganizaciones && (
+                <div>
+                  <Aviso>{errorOrganizaciones}</Aviso>
+                  {puedeVerOrganizaciones && (
+                    <button
+                      type="button"
+                      className="boton boton-secundario reintentar"
+                      onClick={() => {
+                        cambiarErrorOrganizaciones('')
+                        cambiarCargandoOrganizaciones(true)
+                        cambiarRevisionOrganizaciones((actual) => actual + 1)
+                      }}
+                    >
+                      Reintentar carga
+                    </button>
+                  )}
+                </div>
+              )}
+              {!puedeVerOrganizaciones && organizaciones.length === 0 && (
+                <Aviso tipo="informacion">
+                  Tu cuenta necesita el permiso ORGANIZACIONES_VER para elegir una organización
+                  existente.
+                </Aviso>
+              )}
+              <label>
+                Nombre
+                <input
+                  required
+                  value={nombreUsuario}
+                  onChange={(evento) => cambiarNombreUsuario(evento.target.value)}
+                  placeholder="Nombre y apellido"
+                />
+              </label>
+              <label>
+                Correo electrónico
+                <input
+                  required
+                  type="email"
+                  autoComplete="off"
+                  value={correo}
+                  onChange={(evento) => cambiarCorreo(evento.target.value)}
+                  placeholder="persona@agencia.com"
+                />
+              </label>
+              <label>
+                Contraseña inicial
+                <input
+                  required
+                  type="password"
+                  autoComplete="new-password"
+                  value={clave}
+                  onChange={(evento) => cambiarClave(evento.target.value)}
+                  placeholder="Contraseña elegida"
+                />
+              </label>
+              <label>
+                Rol
+                <select
+                  value={rol}
+                  onChange={(evento) =>
+                    cambiarRol(evento.target.value as 'PROPIETARIO' | 'MIEMBRO')
+                  }
+                >
+                  <option value="PROPIETARIO">Propietario</option>
+                  <option value="MIEMBRO">Miembro</option>
+                </select>
+              </label>
+              {errorUsuario && <Aviso>{errorUsuario}</Aviso>}
+              {usuarioCreado && (
+                <Aviso tipo="exito">
+                  Usuario creado: <strong>{usuarioCreado.correoElectronico}</strong> (
+                  {usuarioCreado.rol.toLowerCase()}).
+                </Aviso>
+              )}
+              <button
+                type="submit"
+                className="boton boton-primario"
+                disabled={guardandoUsuario || organizaciones.length === 0}
+              >
+                {guardandoUsuario ? 'Creando…' : 'Crear usuario'}{' '}
+                <Icono nombre="flecha" tamano={17} />
+              </button>
+            </form>
+          </section>
+        )}
+      </div>
+      <div className="nota-disponibilidad">
+        <Icono nombre="escudo" tamano={17} />
+        <p>
+          El selector muestra organizaciones activas. La API todavía no permite listar ni editar
+          usuarios.
+        </p>
+      </div>
+    </div>
+  )
+}
