@@ -78,6 +78,10 @@ export function DetalleCliente({
   const puedeCrearConsulta = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_CREAR')
   const puedeGenerar =
     puedeCrearConsulta && puedeVerConsultas && (!generacion || generacion.estado === 'FALLIDO')
+  const mostrarPanelGeneracion =
+    puedeVerConsultas &&
+    generacion?.estado !== 'FINALIZADO' &&
+    (generacion !== null || puedeGenerar || generando)
   const puedeAprobar = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_APROBAR')
   const puedeDarDeBaja = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_ELIMINAR')
   const puedeCambiarTipo =
@@ -566,26 +570,35 @@ export function DetalleCliente({
 
   return (
     <div className="contenido-limitado">
-      <button className="enlace-volver" type="button" onClick={alVolver}>
-        <Icono nombre="volver" tamano={17} /> Todos los clientes
-      </button>
       {cliente && (
         <>
-          <div className="encabezado-pagina encabezado-detalle">
-            <div>
-              <span className="sobrelinea">CLIENTE MONITOREADO</span>
-              <div className="titulo-con-etiqueta">
-                <h1>{cliente.nombre}</h1>
-                <EtiquetaEstado estado={cliente.estado} />
+          <div className="detalle-cabecera">
+            <button className="enlace-volver" type="button" onClick={alVolver}>
+              <Icono nombre="volver" tamano={17} /> Todos los clientes
+            </button>
+            <div className="encabezado-pagina encabezado-detalle">
+              <div>
+                <span className="sobrelinea">CLIENTE MONITOREADO</span>
+                <div className="titulo-con-etiqueta">
+                  <h1>{cliente.nombre}</h1>
+                  <EtiquetaEstado estado={cliente.estado} />
+                </div>
+                <p>Configuración de marca y consultas de seguimiento.</p>
               </div>
-              <p>Configuración de marca y consultas de seguimiento.</p>
             </div>
           </div>
           {cliente.estado === 'ARCHIVADO' && (
-            <Aviso tipo="informacion">
-              Este cliente está archivado. Sus datos siguen disponibles para lectura; la API no
-              permite reactivarlo desde esta interfaz.
-            </Aviso>
+            <div className="detalle-aviso">
+              <Aviso tipo="informacion">
+                Este cliente está archivado. Sus datos siguen disponibles para lectura; la API no
+                permite reactivarlo desde esta interfaz.
+              </Aviso>
+            </div>
+          )}
+          {puedeVerConsultas && generacion?.estado === 'FINALIZADO' && generacion.advertencia && (
+            <div className="detalle-aviso">
+              <Aviso tipo="informacion">{generacion.advertencia}</Aviso>
+            </div>
           )}
           <div className="resumen-cliente">
             <div className="dato-resumen">
@@ -596,50 +609,66 @@ export function DetalleCliente({
             <div className="dato-resumen">
               <span>SITIO WEB</span>
               {sitioWebCliente ? (
-                <a href={sitioWebCliente} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={sitioWebCliente}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={cliente.sitioWeb}
+                >
                   {cliente.sitioWeb}
                 </a>
               ) : (
                 <strong>{cliente.sitioWeb}</strong>
               )}
-              <small>{sitioWebCliente ? 'Enlace externo ↗' : 'Dirección registrada'}</small>
             </div>
             <div className="dato-resumen">
               <span>MERCADO</span>
               <strong>
                 {cliente.pais} <span className="dato-divisor">/</span> {cliente.idioma}
               </strong>
-              <small>País e idioma</small>
             </div>
             <div className="dato-resumen">
               <span>COMPETIDORES</span>
               <strong>{cliente.competidores.length}</strong>
-              <small>Definidos al crear el cliente</small>
             </div>
           </div>
-          {cliente.descripcion && <p className="descripcion-cliente">{cliente.descripcion}</p>}
-          {cliente.competidores.length > 0 && (
-            <section className="competidores-seccion">
-              <span className="sobrelinea">ENTORNO COMPETITIVO</span>
-              <div className="competidores-lista">
-                {cliente.competidores.map((competidor) => {
-                  const sitioSeguro = urlWebSegura(competidor.sitioWeb)
-                  return (
-                    <span key={competidor.uuid} className="competidor-chip">
-                      {sitioSeguro ? (
-                        <a href={sitioSeguro} target="_blank" rel="noopener noreferrer">
-                          {competidor.nombre} ↗
-                        </a>
-                      ) : (
-                        competidor.nombre
-                      )}
-                    </span>
-                  )
-                })}
+          {(cliente.descripcion || cliente.competidores.length > 0) && (
+            <details className="detalle-extras">
+              <summary>
+                <Icono nombre="flecha" tamano={14} />
+                Ver {cliente.descripcion ? 'descripción' : ''}
+                {cliente.descripcion && cliente.competidores.length > 0 ? ' y ' : ''}
+                {cliente.competidores.length > 0 ? 'competidores' : ''}
+              </summary>
+              <div className="detalle-extras-contenido">
+                {cliente.descripcion && (
+                  <p className="descripcion-cliente">{cliente.descripcion}</p>
+                )}
+                {cliente.competidores.length > 0 && (
+                  <section className="competidores-seccion">
+                    <span className="sobrelinea">ENTORNO COMPETITIVO</span>
+                    <div className="competidores-lista">
+                      {cliente.competidores.map((competidor) => {
+                        const sitioSeguro = urlWebSegura(competidor.sitioWeb)
+                        return (
+                          <span key={competidor.uuid} className="competidor-chip">
+                            {sitioSeguro ? (
+                              <a href={sitioSeguro} target="_blank" rel="noopener noreferrer">
+                                {competidor.nombre} ↗
+                              </a>
+                            ) : (
+                              competidor.nombre
+                            )}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </section>
+                )}
               </div>
-            </section>
+            </details>
           )}
-          {puedeVerConsultas && (
+          {mostrarPanelGeneracion && (
             <GeneracionConsultas
               proceso={generacion}
               puedeGenerar={puedeGenerar}
