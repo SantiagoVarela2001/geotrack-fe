@@ -4,30 +4,23 @@ import type {
   DatosCliente,
   DatosConsulta,
   DatosCuenta,
+  DatosGeneracionConsultas,
   DatosTema,
+  DatosTemaConConsultas,
   SolicitudCrearConsulta,
 } from '../api/tipos'
 import { obtenerMensajeError, tienePermiso, urlWebSegura } from '../utilidades'
-import { Aviso, Icono, Vacio } from './Comun'
+import { AccionesConsultas } from './AccionesConsultas'
+import { Aviso, EtiquetaEstado, Icono, Vacio } from './Comun'
+import { ConfirmarTipoConsulta } from './ConfirmarTipoConsulta'
+import { FilaConsulta } from './FilaConsulta'
+import { GeneracionConsultas } from './GeneracionConsultas'
+import { VistaConsultasAgrupadas } from './VistaConsultasAgrupadas'
 
 const consultaInicial: SolicitudCrearConsulta = {
   texto: '',
   tipoConsulta: 'REFERENCIA',
   prioridad: 'MEDIA',
-}
-
-function EtiquetaEstado({ estado }: { estado: string }) {
-  return (
-    <span className={`etiqueta etiqueta-${estado.toLowerCase()}`}>
-      {estado === 'BORRADOR'
-        ? 'Borrador'
-        : estado === 'APROBADA'
-          ? 'Aprobada'
-          : estado === 'ACTIVO'
-            ? 'Activo'
-            : 'Archivado'}
-    </span>
-  )
 }
 
 export function DetalleCliente({
@@ -43,10 +36,16 @@ export function DetalleCliente({
   const [temas, cambiarTemas] = useState<DatosTema[]>([])
   const [temaUuid, cambiarTemaUuid] = useState('')
   const [consultas, cambiarConsultas] = useState<DatosConsulta[]>([])
-  const [cargandoCliente, cambiarCargandoCliente] = useState(true)
+  const [vistaAgrupada, cambiarVistaAgrupada] = useState(false)
+  const [temasAgrupados, cambiarTemasAgrupados] = useState<DatosTemaConConsultas[] | null>(null)
+  const [errorAgrupados, cambiarErrorAgrupados] = useState('')
+  const [revisionAgrupados, cambiarRevisionAgrupados] = useState(0)
+  const [generacion, cambiarGeneracion] = useState<DatosGeneracionConsultas | null>(null)
+  const [cargandoInicial, cambiarCargandoInicial] = useState(true)
   const [cargandoTemas, cambiarCargandoTemas] = useState(true)
   const [cargandoConsultas, cambiarCargandoConsultas] = useState(false)
-  const [errorCliente, cambiarErrorCliente] = useState('')
+  const [erroresIniciales, cambiarErroresIniciales] = useState<string[]>([])
+  const [errorGeneracion, cambiarErrorGeneracion] = useState('')
   const [errorTemas, cambiarErrorTemas] = useState('')
   const [errorConsultas, cambiarErrorConsultas] = useState('')
   const [errorAccion, cambiarErrorAccion] = useState('')
@@ -62,6 +61,12 @@ export function DetalleCliente({
   const [seleccionadas, cambiarSeleccionadas] = useState<string[]>([])
   const [confirmarBaja, cambiarConfirmarBaja] = useState(false)
   const [guardando, cambiarGuardando] = useState(false)
+  const [consultaParaCambiarTipo, definirConsultaParaCambiarTipo] = useState<DatosConsulta | null>(
+    null,
+  )
+  const [cambiandoTipo, cambiarCambiandoTipo] = useState(false)
+  const [generando, cambiarGenerando] = useState(false)
+  const [revisionInicial, cambiarRevisionInicial] = useState(0)
   const [revisionTemas, cambiarRevisionTemas] = useState(0)
   const [revisionConsultas, cambiarRevisionConsultas] = useState(0)
 
@@ -71,16 +76,50 @@ export function DetalleCliente({
   const puedeCrearTema = activo && tienePermiso(cuenta.permisos, 'TEMAS_CREAR')
   const puedeEditarTema = activo && tienePermiso(cuenta.permisos, 'TEMAS_EDITAR')
   const puedeCrearConsulta = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_CREAR')
+  const puedeGenerar =
+    puedeCrearConsulta && puedeVerConsultas && (!generacion || generacion.estado === 'FALLIDO')
   const puedeAprobar = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_APROBAR')
   const puedeDarDeBaja = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_ELIMINAR')
+  const puedeCambiarTipo =
+    cliente?.estado === 'ACTIVO' && tienePermiso(cuenta.permisos, 'CONSULTAS_CAMBIAR_TIPO')
   const temaActual = temas.find((tema) => tema.uuid === temaUuid)
   const sitioWebCliente = urlWebSegura(cliente?.sitioWeb ?? null)
-  const consultasElegidas = consultas.filter((consulta) => seleccionadas.includes(consulta.uuid))
+  const consultasVisibles = vistaAgrupada
+    ? (temasAgrupados?.flatMap((tema) => tema.consultas) ?? [])
+    : consultas
+  const todosSeleccionados =
+    consultasVisibles.length > 0 &&
+    consultasVisibles.every((consulta) => seleccionadas.includes(consulta.uuid))
+  const consultasElegidas = consultasVisibles.filter((consulta) =>
+    seleccionadas.includes(consulta.uuid),
+  )
   const todasBorrador =
     consultasElegidas.length > 0 &&
+    consultasElegidas.length === seleccionadas.length &&
     consultasElegidas.every((consulta) => consulta.estadoConsulta === 'BORRADOR')
+  const etiquetaBajaAgrupada =
+    seleccionadas.length === 0 || todasBorrador ? 'Rechazar' : 'Dar de baja'
+
+  /** Ante un conflicto, vuelve a leer la vista desde el servidor. */
+  function recargarConsultasVisibles() {
+    cambiarSeleccionadas([])
+    cambiarConfirmarBaja(false)
+    if (vistaAgrupada) {
+      cambiarTemasAgrupados(null)
+      cambiarErrorAgrupados('')
+      cambiarRevisionAgrupados((actual) => actual + 1)
+      return
+    }
+    cambiarCargandoConsultas(true)
+    cambiarRevisionConsultas((actual) => actual + 1)
+  }
 
   function seleccionarTema(uuid: string) {
+    if (guardando || cambiandoTipo) return
+    cambiarVistaAgrupada(false)
+    cambiarTemasAgrupados(null)
+    cambiarSeleccionadas([])
+    cambiarConfirmarBaja(false)
     if (uuid === temaUuid) return
     cambiarTemaUuid(uuid)
     cambiarConsultas([])
@@ -90,34 +129,66 @@ export function DetalleCliente({
     cambiarCargandoConsultas(Boolean(uuid))
   }
 
+  /** La vista general siempre se obtiene de una respuesta nueva del servidor. */
+  function verTodo() {
+    if (vistaAgrupada || guardando || cambiandoTipo) return
+    cambiarVistaAgrupada(true)
+    cambiarTemasAgrupados(null)
+    cambiarErrorAgrupados('')
+    cambiarRenombrando(false)
+    cambiarMostrarConsultas(false)
+    cambiarSeleccionadas([])
+    cambiarConfirmarBaja(false)
+    cambiarErrorAccion('')
+    cambiarMensajeAccion('')
+  }
+
+  /** Espera cliente y proceso antes de presentar cualquier dato de la página. */
   useEffect(() => {
     let vigente = true
-    api.clientes
-      .obtener(clienteUuid)
-      .then((datos) => {
-        if (vigente) cambiarCliente(datos)
-      })
-      .catch((causa) => {
-        if (vigente) cambiarErrorCliente(obtenerMensajeError(causa))
+    const peticionGeneracion = puedeVerConsultas
+      ? api.consultas.obtenerGeneracion(clienteUuid)
+      : Promise.resolve(null)
+
+    Promise.allSettled([api.clientes.obtener(clienteUuid), peticionGeneracion])
+      .then(([resultadoCliente, resultadoGeneracion]) => {
+        if (!vigente) return
+        const errores: string[] = []
+        if (resultadoCliente.status === 'rejected') {
+          errores.push(`Cliente: ${obtenerMensajeError(resultadoCliente.reason)}`)
+        }
+        if (resultadoGeneracion.status === 'rejected') {
+          errores.push(`Generación: ${obtenerMensajeError(resultadoGeneracion.reason)}`)
+        }
+        if (errores.length > 0) {
+          cambiarErroresIniciales(errores)
+          return
+        }
+        if (resultadoCliente.status === 'fulfilled' && resultadoGeneracion.status === 'fulfilled') {
+          cambiarCliente(resultadoCliente.value)
+          cambiarGeneracion(resultadoGeneracion.value)
+        }
       })
       .finally(() => {
-        if (vigente) cambiarCargandoCliente(false)
+        if (vigente) cambiarCargandoInicial(false)
       })
     return () => {
       vigente = false
     }
-  }, [clienteUuid])
+  }, [clienteUuid, puedeVerConsultas, revisionInicial])
 
   useEffect(() => {
-    if (!puedeVerTemas) return
+    if (!cliente || !puedeVerTemas) return
     let vigente = true
     api.temas
       .listar(clienteUuid)
       .then((datos) => {
         if (!vigente) return
         cambiarTemas(datos)
-        cambiarTemaUuid(datos[0]?.uuid ?? '')
-        cambiarCargandoConsultas(Boolean(datos[0]?.uuid))
+        cambiarTemaUuid((actual) =>
+          datos.some((tema) => tema.uuid === actual) ? actual : (datos[0]?.uuid ?? ''),
+        )
+        cambiarCargandoConsultas(Boolean(datos.length))
       })
       .catch((causa) => {
         if (vigente) cambiarErrorTemas(obtenerMensajeError(causa))
@@ -128,7 +199,7 @@ export function DetalleCliente({
     return () => {
       vigente = false
     }
-  }, [clienteUuid, puedeVerTemas, revisionTemas])
+  }, [cliente, clienteUuid, puedeVerTemas, revisionTemas])
 
   useEffect(() => {
     if (!temaUuid || !puedeVerConsultas) return
@@ -149,8 +220,104 @@ export function DetalleCliente({
     }
   }, [clienteUuid, temaUuid, puedeVerConsultas, revisionConsultas])
 
+  /** Carga todos los temas y sus consultas solo mientras la vista general está abierta. */
+  useEffect(() => {
+    if (!cliente || !vistaAgrupada || !puedeVerTemas || !puedeVerConsultas) return
+    let vigente = true
+    api.consultas
+      .listarPorTema(clienteUuid)
+      .then((datos) => {
+        if (vigente) cambiarTemasAgrupados(datos)
+      })
+      .catch((causa) => {
+        if (vigente) cambiarErrorAgrupados(obtenerMensajeError(causa))
+      })
+    return () => {
+      vigente = false
+    }
+  }, [cliente, clienteUuid, vistaAgrupada, puedeVerTemas, puedeVerConsultas, revisionAgrupados])
+
+  /** Consulta un solo proceso a la vez y detiene el intervalo al terminar o salir de la página. */
+  useEffect(() => {
+    if (
+      !puedeVerConsultas ||
+      (generacion?.estado !== 'PENDIENTE' && generacion?.estado !== 'PROCESANDO')
+    ) {
+      return
+    }
+
+    let vigente = true
+    let solicitudPendiente = false
+    const intervalo = window.setInterval(async () => {
+      if (solicitudPendiente) return
+      solicitudPendiente = true
+      try {
+        const actualizada = await api.consultas.obtenerGeneracion(clienteUuid)
+        if (!vigente) return
+        if (!actualizada) {
+          cambiarErrorGeneracion('No se encontró el proceso de generación.')
+          return
+        }
+        cambiarGeneracion(actualizada)
+        cambiarErrorGeneracion('')
+        if (actualizada.estado === 'FINALIZADO') {
+          cambiarTemasAgrupados(null)
+          cambiarErrorAgrupados('')
+          cambiarSeleccionadas([])
+          cambiarRevisionAgrupados((actual) => actual + 1)
+          if (puedeVerTemas) {
+            cambiarCargandoTemas(true)
+            cambiarRevisionTemas((actual) => actual + 1)
+          }
+          if (temaUuid) {
+            cambiarCargandoConsultas(true)
+            cambiarRevisionConsultas((actual) => actual + 1)
+          }
+        }
+      } catch (causa) {
+        if (vigente) cambiarErrorGeneracion(obtenerMensajeError(causa))
+      } finally {
+        solicitudPendiente = false
+      }
+    }, 3000)
+
+    return () => {
+      vigente = false
+      window.clearInterval(intervalo)
+    }
+  }, [clienteUuid, generacion?.estado, puedeVerConsultas, puedeVerTemas, temaUuid])
+
+  async function iniciarGeneracion() {
+    if (!puedeGenerar || generando) return
+    cambiarGenerando(true)
+    cambiarErrorGeneracion('')
+    try {
+      const iniciada = await api.consultas.iniciarGeneracion(clienteUuid)
+      cambiarGeneracion(iniciada)
+      if (iniciada.estado === 'FINALIZADO') {
+        cambiarTemasAgrupados(null)
+        cambiarErrorAgrupados('')
+        cambiarSeleccionadas([])
+        cambiarRevisionAgrupados((actual) => actual + 1)
+        if (puedeVerTemas) {
+          cambiarCargandoTemas(true)
+          cambiarRevisionTemas((actual) => actual + 1)
+        }
+        if (temaUuid) {
+          cambiarCargandoConsultas(true)
+          cambiarRevisionConsultas((actual) => actual + 1)
+        }
+      }
+    } catch (causa) {
+      cambiarErrorGeneracion(obtenerMensajeError(causa))
+    } finally {
+      cambiarGenerando(false)
+    }
+  }
+
   async function crearTema(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
+    if (guardando || creandoTema) return
     cambiarErrorAccion('')
     cambiarMensajeAccion('')
     cambiarCreandoTema(true)
@@ -227,14 +394,20 @@ export function DetalleCliente({
       cambiarConsultas((actuales) =>
         actuales.map((consulta) => porUuid.get(consulta.uuid) ?? consulta),
       )
+      cambiarTemasAgrupados(
+        (actuales) =>
+          actuales?.map((tema) => ({
+            ...tema,
+            consultas: tema.consultas.map((consulta) => porUuid.get(consulta.uuid) ?? consulta),
+          })) ?? null,
+      )
       cambiarSeleccionadas([])
       cambiarMensajeAccion(
         `${aprobadas.length} ${aprobadas.length === 1 ? 'consulta aprobada' : 'consultas aprobadas'}.`,
       )
     } catch (causa) {
       cambiarErrorAccion(obtenerMensajeError(causa))
-      cambiarCargandoConsultas(true)
-      cambiarRevisionConsultas((actual) => actual + 1)
+      recargarConsultasVisibles()
     } finally {
       cambiarGuardando(false)
     }
@@ -242,28 +415,95 @@ export function DetalleCliente({
 
   /** Solo retira la selección si el backend confirmó la baja completa con 204. */
   async function darDeBajaSeleccionadas() {
-    if (!puedeDarDeBaja || seleccionadas.length === 0) return
+    if (
+      !puedeDarDeBaja ||
+      seleccionadas.length === 0 ||
+      consultasElegidas.length !== seleccionadas.length
+    ) {
+      return
+    }
     cambiarGuardando(true)
     cambiarErrorAccion('')
     cambiarMensajeAccion('')
+    const esRechazo = vistaAgrupada && todasBorrador
     try {
       await api.consultas.darDeBaja(clienteUuid, seleccionadas)
       const cantidad = seleccionadas.length
       cambiarConsultas((actuales) =>
         actuales.filter((consulta) => !seleccionadas.includes(consulta.uuid)),
       )
+      cambiarTemasAgrupados(
+        (actuales) =>
+          actuales?.map((tema) => ({
+            ...tema,
+            consultas: tema.consultas.filter((consulta) => !seleccionadas.includes(consulta.uuid)),
+          })) ?? null,
+      )
       cambiarSeleccionadas([])
       cambiarConfirmarBaja(false)
       cambiarMensajeAccion(
-        `${cantidad} ${cantidad === 1 ? 'consulta dada' : 'consultas dadas'} de baja.`,
+        esRechazo
+          ? `${cantidad} ${cantidad === 1 ? 'consulta rechazada' : 'consultas rechazadas'}.`
+          : `${cantidad} ${cantidad === 1 ? 'consulta dada' : 'consultas dadas'} de baja.`,
       )
     } catch (causa) {
       cambiarErrorAccion(obtenerMensajeError(causa))
-      cambiarConfirmarBaja(false)
-      cambiarCargandoConsultas(true)
-      cambiarRevisionConsultas((actual) => actual + 1)
+      recargarConsultasVisibles()
     } finally {
       cambiarGuardando(false)
+    }
+  }
+
+  function solicitarCambioTipo(consulta: DatosConsulta) {
+    if (
+      !puedeCambiarTipo ||
+      consulta.estadoConsulta !== 'BORRADOR' ||
+      guardando ||
+      cambiandoTipo ||
+      confirmarBaja
+    ) {
+      return
+    }
+    definirConsultaParaCambiarTipo(consulta)
+    cambiarErrorAccion('')
+    cambiarMensajeAccion('')
+  }
+
+  /** Confirma el cambio con el backend antes de reflejarlo en ambas vistas. */
+  async function confirmarCambioTipo() {
+    const consulta = consultaParaCambiarTipo
+    if (!consulta || !puedeCambiarTipo || consulta.estadoConsulta !== 'BORRADOR' || cambiandoTipo) {
+      return
+    }
+
+    const nuevoTipo = consulta.tipoConsulta === 'REFERENCIA' ? 'DESCUBRIMIENTO' : 'REFERENCIA'
+    cambiarCambiandoTipo(true)
+    try {
+      const actualizada = await api.consultas.cambiarTipo(clienteUuid, consulta.uuid, nuevoTipo)
+      cambiarConsultas((actuales) =>
+        actuales.map((item) => (item.uuid === actualizada.uuid ? actualizada : item)),
+      )
+      cambiarTemasAgrupados(
+        (actuales) =>
+          actuales?.map((tema) => ({
+            ...tema,
+            consultas: tema.consultas.map((item) =>
+              item.uuid === actualizada.uuid ? actualizada : item,
+            ),
+          })) ?? null,
+      )
+      cambiarMensajeAccion(
+        actualizada.tipoConsulta === 'REFERENCIA'
+          ? 'Consulta marcada como referencia.'
+          : 'Consulta cambiada a descubrimiento.',
+      )
+      definirConsultaParaCambiarTipo(null)
+    } catch (causa) {
+      definirConsultaParaCambiarTipo(null)
+      cambiarErrorAccion(obtenerMensajeError(causa))
+      recargarConsultasVisibles()
+    } finally {
+      cambiarCambiandoTipo(false)
     }
   }
 
@@ -274,8 +514,53 @@ export function DetalleCliente({
   }
 
   function alternarSeleccion(uuid: string) {
+    if (guardando || cambiandoTipo || confirmarBaja) return
     cambiarSeleccionadas((actuales) =>
       actuales.includes(uuid) ? actuales.filter((item) => item !== uuid) : [...actuales, uuid],
+    )
+  }
+
+  /** Selecciona solo las consultas que se ven en el tema o en la vista general. */
+  function alternarSeleccionTotal() {
+    if (guardando || cambiandoTipo || confirmarBaja || consultasVisibles.length === 0) return
+    const uuidsVisibles = consultasVisibles.map((consulta) => consulta.uuid)
+    cambiarSeleccionadas((actuales) =>
+      uuidsVisibles.every((uuid) => actuales.includes(uuid)) ? [] : uuidsVisibles,
+    )
+  }
+
+  if (cargandoInicial) {
+    return (
+      <div className="contenido-limitado">
+        <div className="cargando-bloque" role="status">
+          Cargando cliente y estado de generación…
+        </div>
+      </div>
+    )
+  }
+
+  if (erroresIniciales.length > 0 || !cliente) {
+    return (
+      <div className="contenido-limitado">
+        <button className="enlace-volver" type="button" onClick={alVolver}>
+          <Icono nombre="volver" tamano={17} /> Todos los clientes
+        </button>
+        {erroresIniciales.map((error) => (
+          <Aviso key={error}>{error}</Aviso>
+        ))}
+        {!cliente && erroresIniciales.length === 0 && <Aviso>No se pudo cargar el cliente.</Aviso>}
+        <button
+          className="boton boton-secundario reintentar"
+          type="button"
+          onClick={() => {
+            cambiarErroresIniciales([])
+            cambiarCargandoInicial(true)
+            cambiarRevisionInicial((actual) => actual + 1)
+          }}
+        >
+          Reintentar
+        </button>
+      </div>
     )
   }
 
@@ -284,8 +569,6 @@ export function DetalleCliente({
       <button className="enlace-volver" type="button" onClick={alVolver}>
         <Icono nombre="volver" tamano={17} /> Todos los clientes
       </button>
-      {cargandoCliente && <div className="cargando-bloque">Cargando cliente…</div>}
-      {errorCliente && <Aviso>{errorCliente}</Aviso>}
       {cliente && (
         <>
           <div className="encabezado-pagina encabezado-detalle">
@@ -356,6 +639,15 @@ export function DetalleCliente({
               </div>
             </section>
           )}
+          {puedeVerConsultas && (
+            <GeneracionConsultas
+              proceso={generacion}
+              puedeGenerar={puedeGenerar}
+              generando={generando}
+              error={errorGeneracion}
+              alGenerar={iniciarGeneracion}
+            />
+          )}
           <div className="trabajo-grilla">
             <section className="tarjeta temas-panel">
               <div className="seccion-cabecera">
@@ -386,17 +678,33 @@ export function DetalleCliente({
                         Reintentar
                       </button>
                     </div>
-                  ) : temas.length === 0 ? (
-                    <p className="texto-secundario sin-temas">
-                      Todavía no hay temas para este cliente.
-                    </p>
                   ) : (
                     <div className="lista-temas">
+                      {puedeVerConsultas && (
+                        <button
+                          type="button"
+                          className={`item-tema item-tema-general ${vistaAgrupada ? 'item-tema-activo' : ''}`}
+                          onClick={verTodo}
+                          aria-pressed={vistaAgrupada}
+                          disabled={guardando || cambiandoTipo}
+                        >
+                          <Icono nombre="capas" tamano={17} />
+                          <span>Ver todo</span>
+                          <Icono nombre="flecha" tamano={16} />
+                        </button>
+                      )}
+                      {temas.length === 0 && (
+                        <p className="texto-secundario sin-temas">
+                          Todavía no hay temas para este cliente.
+                        </p>
+                      )}
                       {temas.map((tema, indice) => (
                         <button
                           type="button"
-                          className={`item-tema ${tema.uuid === temaUuid ? 'item-tema-activo' : ''}`}
+                          className={`item-tema ${!vistaAgrupada && tema.uuid === temaUuid ? 'item-tema-activo' : ''}`}
                           key={tema.uuid}
+                          aria-pressed={!vistaAgrupada && tema.uuid === temaUuid}
+                          disabled={guardando || cambiandoTipo}
                           onClick={() => {
                             seleccionarTema(tema.uuid)
                             cambiarRenombrando(false)
@@ -421,13 +729,14 @@ export function DetalleCliente({
                       required
                       maxLength={200}
                       value={nuevoTema}
+                      disabled={guardando}
                       onChange={(evento) => cambiarNuevoTema(evento.target.value)}
                       placeholder="Ej. Software de gestión"
                     />
                     <button
                       className="boton-icono boton-agregar"
                       type="submit"
-                      disabled={creandoTema}
+                      disabled={creandoTema || guardando}
                       aria-label="Crear tema"
                     >
                       <Icono nombre="mas" tamano={18} />
@@ -437,7 +746,67 @@ export function DetalleCliente({
               )}
             </section>
             <section className="tarjeta consultas-panel">
-              {!temaActual ? (
+              {vistaAgrupada && puedeVerTemas && puedeVerConsultas ? (
+                errorAgrupados ? (
+                  <div>
+                    <Aviso>{errorAgrupados}</Aviso>
+                    <button
+                      type="button"
+                      className="boton boton-secundario reintentar"
+                      onClick={() => {
+                        cambiarTemasAgrupados(null)
+                        cambiarErrorAgrupados('')
+                        cambiarRevisionAgrupados((actual) => actual + 1)
+                      }}
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                ) : temasAgrupados === null ? (
+                  <div className="cargando-bloque" role="status">
+                    Cargando temas y consultas…
+                  </div>
+                ) : (
+                  <VistaConsultasAgrupadas
+                    temas={temasAgrupados}
+                    alAbrirTema={seleccionarTema}
+                    seleccionadas={seleccionadas}
+                    puedeSeleccionar={puedeAprobar || puedeDarDeBaja}
+                    seleccionBloqueada={guardando || cambiandoTipo || confirmarBaja}
+                    navegacionBloqueada={guardando || cambiandoTipo}
+                    puedeCambiarTipo={puedeCambiarTipo}
+                    cambioTipoBloqueado={guardando || cambiandoTipo || confirmarBaja}
+                    alSolicitarCambioTipo={solicitarCambioTipo}
+                    alAlternar={alternarSeleccion}
+                    avisos={
+                      <>
+                        {errorAccion && <Aviso>{errorAccion}</Aviso>}
+                        {mensajeAccion && <Aviso tipo="exito">{mensajeAccion}</Aviso>}
+                      </>
+                    }
+                    acciones={
+                      (puedeAprobar || puedeDarDeBaja) && (
+                        <AccionesConsultas
+                          cantidadSeleccionadas={seleccionadas.length}
+                          cantidadVisibles={consultasVisibles.length}
+                          todosSeleccionados={todosSeleccionados}
+                          todasBorrador={todasBorrador}
+                          puedeAprobar={puedeAprobar}
+                          puedeDarDeBaja={puedeDarDeBaja}
+                          guardando={guardando || cambiandoTipo}
+                          confirmarBaja={confirmarBaja}
+                          etiquetaBaja={etiquetaBajaAgrupada}
+                          alAprobar={aprobarSeleccionadas}
+                          alAlternarTodos={alternarSeleccionTotal}
+                          alSolicitarBaja={() => cambiarConfirmarBaja(true)}
+                          alCancelarBaja={() => cambiarConfirmarBaja(false)}
+                          alConfirmarBaja={darDeBajaSeleccionadas}
+                        />
+                      )
+                    }
+                  />
+                )
+              ) : !temaActual ? (
                 <Vacio
                   icono="capas"
                   titulo="Elegí un tema"
@@ -541,98 +910,44 @@ export function DetalleCliente({
                         />
                       ) : (
                         <>
-                          <div className="consultas-herramientas">
-                            <span className="texto-secundario">
-                              {seleccionadas.length
-                                ? `${seleccionadas.length} seleccionadas`
-                                : 'Seleccioná consultas para actuar por lote'}
-                            </span>
-                            <div className="acciones-lote">
-                              {puedeAprobar && (
-                                <button
-                                  className="boton boton-secundario boton-chico"
-                                  type="button"
-                                  onClick={aprobarSeleccionadas}
-                                  disabled={!todasBorrador || guardando}
-                                >
-                                  <Icono nombre="check" tamano={15} /> Aprobar
-                                </button>
-                              )}
-                              {puedeDarDeBaja && (
-                                <button
-                                  className="boton boton-peligro boton-chico"
-                                  type="button"
-                                  onClick={() => cambiarConfirmarBaja(true)}
-                                  disabled={seleccionadas.length === 0 || guardando}
-                                >
-                                  Dar de baja
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          {confirmarBaja && (
-                            <div
-                              className="confirmacion-baja"
-                              role="alertdialog"
-                              aria-label="Confirmar baja"
-                            >
-                              <strong>
-                                ¿Dar de baja {seleccionadas.length}{' '}
-                                {seleccionadas.length === 1 ? 'consulta' : 'consultas'}?
-                              </strong>
-                              <p>
-                                Desaparecerán de las lecturas y liberarán cupo. Esta acción no se
-                                puede deshacer desde la interfaz.
-                              </p>
-                              <div>
-                                <button
-                                  className="boton boton-secundario boton-chico"
-                                  type="button"
-                                  onClick={() => cambiarConfirmarBaja(false)}
-                                >
-                                  Cancelar
-                                </button>
-                                <button
-                                  className="boton boton-peligro boton-chico"
-                                  type="button"
-                                  disabled={guardando}
-                                  onClick={darDeBajaSeleccionadas}
-                                >
-                                  Confirmar baja
-                                </button>
-                              </div>
-                            </div>
+                          {(puedeAprobar || puedeDarDeBaja) && (
+                            <AccionesConsultas
+                              cantidadSeleccionadas={seleccionadas.length}
+                              cantidadVisibles={consultasVisibles.length}
+                              todosSeleccionados={todosSeleccionados}
+                              todasBorrador={todasBorrador}
+                              puedeAprobar={puedeAprobar}
+                              puedeDarDeBaja={puedeDarDeBaja}
+                              guardando={guardando || cambiandoTipo}
+                              confirmarBaja={confirmarBaja}
+                              etiquetaBaja="Dar de baja"
+                              alAprobar={aprobarSeleccionadas}
+                              alAlternarTodos={alternarSeleccionTotal}
+                              alSolicitarBaja={() => cambiarConfirmarBaja(true)}
+                              alCancelarBaja={() => cambiarConfirmarBaja(false)}
+                              alConfirmarBaja={darDeBajaSeleccionadas}
+                            />
                           )}
                           <div className="lista-consultas">
                             {consultas.map((consulta, indice) => (
-                              <article className="consulta-fila" key={consulta.uuid}>
-                                <div className="consulta-seleccion">
-                                  {(puedeAprobar || puedeDarDeBaja) && (
-                                    <input
-                                      type="checkbox"
-                                      aria-label={`Seleccionar consulta ${indice + 1}`}
-                                      checked={seleccionadas.includes(consulta.uuid)}
-                                      onChange={() => alternarSeleccion(consulta.uuid)}
-                                    />
-                                  )}
-                                </div>
-                                <div className="consulta-contenido">
-                                  <div className="consulta-etiquetas">
-                                    <span className="consulta-numero">
-                                      {String(indice + 1).padStart(2, '0')}
-                                    </span>
-                                    <span>
-                                      {consulta.tipoConsulta === 'REFERENCIA'
-                                        ? 'Referencia'
-                                        : 'Descubrimiento'}
-                                    </span>
-                                    <span className="punto-separador">·</span>
-                                    <span>Prioridad {consulta.prioridad.toLowerCase()}</span>
-                                  </div>
-                                  <p>{consulta.texto}</p>
-                                </div>
-                                <EtiquetaEstado estado={consulta.estadoConsulta} />
-                              </article>
+                              <FilaConsulta
+                                key={consulta.uuid}
+                                consulta={consulta}
+                                indice={indice}
+                                seleccionada={seleccionadas.includes(consulta.uuid)}
+                                deshabilitada={guardando || cambiandoTipo || confirmarBaja}
+                                alCambiarTipo={
+                                  puedeCambiarTipo && consulta.estadoConsulta === 'BORRADOR'
+                                    ? () => solicitarCambioTipo(consulta)
+                                    : undefined
+                                }
+                                cambioTipoBloqueado={guardando || cambiandoTipo || confirmarBaja}
+                                alAlternar={
+                                  puedeAprobar || puedeDarDeBaja
+                                    ? () => alternarSeleccion(consulta.uuid)
+                                    : undefined
+                                }
+                              />
                             ))}
                           </div>
                         </>
@@ -755,6 +1070,14 @@ export function DetalleCliente({
               )}
             </section>
           </div>
+          {consultaParaCambiarTipo && (
+            <ConfirmarTipoConsulta
+              consulta={consultaParaCambiarTipo}
+              enviando={cambiandoTipo}
+              alCancelar={() => definirConsultaParaCambiarTipo(null)}
+              alConfirmar={confirmarCambioTipo}
+            />
+          )}
         </>
       )}
     </div>

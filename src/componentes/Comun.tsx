@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { DatosCliente, DatosConsulta } from '../api/tipos'
 
 type NombreIcono =
   | 'clientes'
@@ -13,9 +14,18 @@ type NombreIcono =
   | 'editar'
   | 'documento'
   | 'capas'
+  | 'estrella'
   | 'escudo'
 
-export function Icono({ nombre, tamano = 20 }: { nombre: NombreIcono; tamano?: number }) {
+export function Icono({
+  nombre,
+  tamano = 20,
+  relleno = false,
+}: {
+  nombre: NombreIcono
+  tamano?: number
+  relleno?: boolean
+}) {
   const trazos: Record<NombreIcono, ReactNode> = {
     clientes: (
       <>
@@ -63,6 +73,9 @@ export function Icono({ nombre, tamano = 20 }: { nombre: NombreIcono; tamano?: n
         <path d="m12 2 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5" />
       </>
     ),
+    estrella: (
+      <path d="m12 2.5 2.95 6.1 6.7.96-4.85 4.73 1.14 6.68L12 17.82l-5.94 3.15 1.14-6.68-4.85-4.73 6.7-.96L12 2.5Z" />
+    ),
     escudo: (
       <>
         <path d="M12 2 4 5v6c0 5 3.4 8.8 8 11 4.6-2.2 8-6 8-11V5l-8-3Z" />
@@ -75,7 +88,7 @@ export function Icono({ nombre, tamano = 20 }: { nombre: NombreIcono; tamano?: n
       width={tamano}
       height={tamano}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={relleno ? 'currentColor' : 'none'}
       stroke="currentColor"
       strokeWidth="1.8"
       strokeLinecap="round"
@@ -109,6 +122,24 @@ export function Aviso({
     <div className={`aviso aviso-${tipo}`} role={tipo === 'error' ? 'alert' : 'status'}>
       {children}
     </div>
+  )
+}
+
+export function EtiquetaEstado({
+  estado,
+}: {
+  estado: DatosCliente['estado'] | DatosConsulta['estadoConsulta']
+}) {
+  return (
+    <span className={`etiqueta etiqueta-${estado.toLowerCase()}`}>
+      {estado === 'BORRADOR'
+        ? 'Borrador'
+        : estado === 'APROBADA'
+          ? 'Aprobada'
+          : estado === 'ACTIVO'
+            ? 'Activo'
+            : 'Archivado'}
+    </span>
   )
 }
 

@@ -2,8 +2,10 @@ import type {
   DatosCliente,
   DatosConsulta,
   DatosCuenta,
+  DatosGeneracionConsultas,
   DatosOrganizacion,
   DatosTema,
+  DatosTemaConConsultas,
   RespuestaAcceso,
   RespuestaUsuario,
   SolicitudCrearCliente,
@@ -53,6 +55,7 @@ async function crearError(respuesta: Response): Promise<ErrorApi> {
     403: 'Tu cuenta no tiene permiso para esta acción.',
     404: 'El recurso no existe o no está disponible para tu cuenta.',
     409: 'La operación entra en conflicto con el estado actual.',
+    503: 'La generación no está disponible en este momento.',
   }
   return new ErrorApi(
     respuesta.status,
@@ -190,9 +193,37 @@ export const api = {
       ),
   },
   consultas: {
+    listarPorTema: (clienteUuid: string) =>
+      solicitar<DatosTemaConConsultas[]>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/consultas/por-tema`,
+      ),
+    /** Un 204 indica que el cliente aún no tiene un proceso de generación. */
+    async obtenerGeneracion(clienteUuid: string): Promise<DatosGeneracionConsultas | null> {
+      const datos = await solicitar<DatosGeneracionConsultas | undefined>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/consultas/generacion`,
+      )
+      return datos ?? null
+    },
+    iniciarGeneracion: (clienteUuid: string) =>
+      solicitar<DatosGeneracionConsultas>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/consultas/generacion`,
+        { method: 'POST' },
+      ),
     listar: (clienteUuid: string, temaUuid: string) =>
       solicitar<DatosConsulta[]>(
         `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/temas/${encodeURIComponent(temaUuid)}/consultas`,
+      ),
+    cambiarTipo: (
+      clienteUuid: string,
+      consultaUuid: string,
+      tipoConsulta: DatosConsulta['tipoConsulta'],
+    ) =>
+      solicitar<DatosConsulta>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/consultas/${encodeURIComponent(consultaUuid)}/tipo`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ tipoConsulta }),
+        },
       ),
     crear: (clienteUuid: string, temaUuid: string, datos: SolicitudCrearConsulta[]) =>
       solicitar<DatosConsulta[]>(

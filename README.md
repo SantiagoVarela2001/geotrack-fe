@@ -30,9 +30,10 @@ La imagen sirve archivos estáticos con Nginx y redirige `/api` al backend. No i
 - Alta y listado de organizaciones activas, y alta de usuarios para `SYSADMIN`.
 - Alta y lectura de clientes con competidores; lectura de clientes archivados.
 - Alta, lectura y cambio de nombre de temas.
-- Alta de consultas por lote, lectura, aprobación y baja lógica por lote.
+- Alta de consultas por lote, lectura individual y agrupada por tema, cambio de tipo en borradores, aprobación y baja lógica por lote.
+- Generación asistida de borradores con estado del proceso y actualización cada 3 segundos mientras está activo.
 
-No se muestran resultados de monitoreo, métricas ni sugerencias de IA porque aún no existen endpoints para esas funciones. La organización para crear un usuario se elige del listado de organizaciones activas. Todavía no existe un listado de usuarios.
+No se muestran resultados de monitoreo, métricas ni recomendaciones porque aún no existen endpoints para esas funciones. La organización para crear un usuario se elige del listado de organizaciones activas. Todavía no existe un listado de usuarios.
 
 ## Verificación
 

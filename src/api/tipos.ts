@@ -73,7 +73,20 @@ export interface DatosConsulta {
   prioridad: 'ALTA' | 'MEDIA' | 'BAJA'
 }
 
+export interface DatosTemaConConsultas extends DatosTema {
+  consultas: DatosConsulta[]
+}
+
 export type SolicitudCrearConsulta = Pick<DatosConsulta, 'texto' | 'tipoConsulta' | 'prioridad'>
+
+export interface DatosGeneracionConsultas {
+  procesoUuid: string
+  estado: 'PENDIENTE' | 'PROCESANDO' | 'FINALIZADO' | 'FALLIDO'
+  mensaje: string | null
+  advertencia: string | null
+  temas: DatosTema[]
+  consultas: DatosConsulta[]
+}
 
 export interface DatosOrganizacion {
   uuid: string
