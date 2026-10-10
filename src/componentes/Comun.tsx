@@ -103,10 +103,8 @@ export function Icono({
 export function Marca({ compacta = false }: { compacta?: boolean }) {
   return (
     <div className={`marca ${compacta ? 'marca-compacta' : ''}`}>
-      <img src="/logo.png" alt="" />
-      <span>
-        geotrack<span className="marca-punto">.</span>
-      </span>
+      <img src="/logo.svg" alt="" />
+      <span>gelaia</span>
     </div>
   )
 }

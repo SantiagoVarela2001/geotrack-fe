@@ -13,6 +13,9 @@ export function VistaConsultasAgrupadas({
   puedeCambiarTipo,
   cambioTipoBloqueado,
   alSolicitarCambioTipo,
+  alAbrirDetalle,
+  puedeEjecutar,
+  alEjecutar,
   alAlternar,
   avisos,
   acciones,
@@ -26,6 +29,9 @@ export function VistaConsultasAgrupadas({
   puedeCambiarTipo: boolean
   cambioTipoBloqueado: boolean
   alSolicitarCambioTipo: (consulta: DatosConsulta) => void
+  alAbrirDetalle: (consulta: DatosConsulta, temaUuid: string) => void
+  puedeEjecutar: boolean
+  alEjecutar: (consulta: DatosConsulta, temaUuid: string) => void
   alAlternar: (uuid: string) => void
   avisos: ReactNode
   acciones: ReactNode
@@ -85,6 +91,13 @@ export function VistaConsultasAgrupadas({
                       seleccionada={seleccionadas.includes(consulta.uuid)}
                       deshabilitada={seleccionBloqueada}
                       alAlternar={puedeSeleccionar ? () => alAlternar(consulta.uuid) : undefined}
+                      alAbrirDetalle={() => alAbrirDetalle(consulta, tema.uuid)}
+                      alEjecutar={
+                        puedeEjecutar && consulta.estadoConsulta === 'APROBADA'
+                          ? () => alEjecutar(consulta, tema.uuid)
+                          : undefined
+                      }
+                      accionesBloqueadas={navegacionBloqueada}
                       alCambiarTipo={
                         puedeCambiarTipo && consulta.estadoConsulta === 'BORRADOR'
                           ? () => alSolicitarCambioTipo(consulta)

@@ -10,6 +10,9 @@ export function FilaConsulta({
   nombreTema,
   alAlternar,
   alCambiarTipo,
+  alAbrirDetalle,
+  alEjecutar,
+  accionesBloqueadas = false,
   cambioTipoBloqueado = false,
 }: {
   consulta: DatosConsulta
@@ -19,6 +22,9 @@ export function FilaConsulta({
   nombreTema?: string
   alAlternar?: () => void
   alCambiarTipo?: () => void
+  alAbrirDetalle?: () => void
+  alEjecutar?: () => void
+  accionesBloqueadas?: boolean
   cambioTipoBloqueado?: boolean
 }) {
   const esReferencia = consulta.tipoConsulta === 'REFERENCIA'
@@ -59,6 +65,30 @@ export function FilaConsulta({
           <span>Prioridad {consulta.prioridad.toLowerCase()}</span>
         </div>
         <p>{consulta.texto}</p>
+      </div>
+      <div className="consulta-acciones">
+        {consulta.estadoConsulta === 'APROBADA' && alEjecutar && (
+          <button
+            className="consulta-ejecutar-boton"
+            type="button"
+            onClick={alEjecutar}
+            disabled={accionesBloqueadas}
+            aria-label={`Ejecutar consulta ${indice + 1}${nombreTema ? ` de ${nombreTema}` : ''}`}
+          >
+            Ejecutar
+          </button>
+        )}
+        {alAbrirDetalle && (
+          <button
+            className="consulta-detalle-boton"
+            type="button"
+            onClick={alAbrirDetalle}
+            disabled={accionesBloqueadas}
+            aria-label={`Ver detalle de la consulta ${indice + 1}${nombreTema ? ` de ${nombreTema}` : ''}`}
+          >
+            Ver detalle
+          </button>
+        )}
       </div>
       <button
         className={`consulta-tipo-boton ${esReferencia ? 'consulta-tipo-boton-referencia' : ''}`}

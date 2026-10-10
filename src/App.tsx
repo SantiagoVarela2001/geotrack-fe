@@ -1,20 +1,44 @@
 ﻿import { useEffect, useState } from 'react'
 import { api, configurarExpiracionSesion } from './api/clienteApi'
-import type { DatosCliente, DatosCuenta } from './api/tipos'
+import type { DatosCliente, DatosConsulta, DatosCuenta } from './api/tipos'
 import { Administracion } from './componentes/Administracion'
 import { Aviso, Icono, Marca, Vacio } from './componentes/Comun'
 import { DetalleCliente } from './componentes/DetalleCliente'
+import { DetalleEjecucionConsulta } from './componentes/DetalleEjecucionConsulta'
 import { FormularioCliente } from './componentes/FormularioCliente'
 import { Ingreso } from './componentes/Ingreso'
 import { obtenerMensajeError, tienePermiso } from './utilidades'
 import './App.css'
 
-type Ruta = { tipo: 'clientes' } | { tipo: 'cliente'; uuid: string } | { tipo: 'administracion' }
+type Ruta =
+  | { tipo: 'clientes' }
+  | { tipo: 'cliente'; uuid: string; temaUuid?: string }
+  | {
+      tipo: 'ejecucion'
+      clienteUuid: string
+      temaUuid: string
+      consultaUuid: string
+      iniciarAlAbrir: boolean
+    }
+  | { tipo: 'administracion' }
 
 /** El hash permite conservar la vista al recargar sin exigir rutas al servidor estático. */
 function leerRuta(): Ruta {
   const ruta = window.location.hash.slice(1)
   if (ruta === '/administracion') return { tipo: 'administracion' }
+  const ejecucion =
+    /^\/clientes\/([0-9a-f-]+)\/temas\/([0-9a-f-]+)\/consultas\/([0-9a-f-]+)\/ejecucion$/i.exec(ruta)
+  if (ejecucion) {
+    return {
+      tipo: 'ejecucion',
+      clienteUuid: ejecucion[1],
+      temaUuid: ejecucion[2],
+      consultaUuid: ejecucion[3],
+      iniciarAlAbrir: false,
+    }
+  }
+  const tema = /^\/clientes\/([0-9a-f-]+)\/temas\/([0-9a-f-]+)$/i.exec(ruta)
+  if (tema) return { tipo: 'cliente', uuid: tema[1], temaUuid: tema[2] }
   const cliente = /^\/clientes\/([0-9a-f-]+)$/i.exec(ruta)
   if (cliente) return { tipo: 'cliente', uuid: cliente[1] }
   return { tipo: 'clientes' }
@@ -199,7 +223,20 @@ function App() {
   const [errorSalida, cambiarErrorSalida] = useState('')
 
   useEffect(() => {
-    const actualizarRuta = () => cambiarRuta(leerRuta())
+    const actualizarRuta = () =>
+      cambiarRuta((actual) => {
+        const siguiente = leerRuta()
+        if (
+          actual.tipo === 'ejecucion' &&
+          siguiente.tipo === 'ejecucion' &&
+          actual.clienteUuid === siguiente.clienteUuid &&
+          actual.temaUuid === siguiente.temaUuid &&
+          actual.consultaUuid === siguiente.consultaUuid
+        ) {
+          return actual
+        }
+        return siguiente
+      })
     window.addEventListener('hashchange', actualizarRuta)
     return () => window.removeEventListener('hashchange', actualizarRuta)
   }, [])
@@ -237,6 +274,23 @@ function App() {
     }
   }
 
+  /** Conserva el inicio inmediato solo durante esta navegación; una recarga no repite el POST. */
+  function abrirEjecucion(
+    clienteUuid: string,
+    temaUuid: string,
+    consulta: DatosConsulta,
+    iniciarAlAbrir: boolean,
+  ) {
+    cambiarRuta({
+      tipo: 'ejecucion',
+      clienteUuid,
+      temaUuid,
+      consultaUuid: consulta.uuid,
+      iniciarAlAbrir,
+    })
+    navegar(`/clientes/${clienteUuid}/temas/${temaUuid}/consultas/${consulta.uuid}/ejecucion`)
+  }
+
   if (restaurando)
     return (
       <div className="pantalla-carga">
@@ -272,7 +326,9 @@ function App() {
       ? 'Administración'
       : ruta.tipo === 'cliente'
         ? 'Detalle del cliente'
-        : 'Clientes'
+        : ruta.tipo === 'ejecucion'
+          ? 'Ejecución de consulta'
+          : 'Clientes'
 
   return (
     <div className="aplicacion">
@@ -319,7 +375,7 @@ function App() {
       <div className="area-principal">
         <header className="barra-superior">
           <span>
-            GEOTRACK <b>/</b> {nombreVista}
+            GELAIA <b>/</b> {nombreVista}
           </span>
           <div>
             <span className="indicador-conexion" />{' '}
@@ -333,12 +389,30 @@ function App() {
             ) : (
               <Aviso tipo="informacion">Tu cuenta no tiene acceso a administración.</Aviso>
             )
+          ) : ruta.tipo === 'ejecucion' ? (
+            tienePermiso(cuenta.permisos, 'CONSULTAS_VER') ? (
+              <DetalleEjecucionConsulta
+                key={`${ruta.clienteUuid}:${ruta.consultaUuid}`}
+                clienteUuid={ruta.clienteUuid}
+                temaUuid={ruta.temaUuid}
+                consultaUuid={ruta.consultaUuid}
+                cuenta={cuenta}
+                iniciarAlAbrir={ruta.iniciarAlAbrir}
+                alVolver={() => navegar(`/clientes/${ruta.clienteUuid}/temas/${ruta.temaUuid}`)}
+              />
+            ) : (
+              <Aviso tipo="informacion">Tu cuenta no tiene permiso para ver consultas.</Aviso>
+            )
           ) : ruta.tipo === 'cliente' ? (
             tienePermiso(cuenta.permisos, 'CLIENTES_VER') ? (
               <DetalleCliente
-                key={ruta.uuid}
+                key={`${ruta.uuid}:${ruta.temaUuid ?? ''}`}
                 clienteUuid={ruta.uuid}
                 cuenta={cuenta}
+                temaInicialUuid={ruta.temaUuid}
+                alAbrirEjecucion={(consulta, temaUuid, iniciar) =>
+                  abrirEjecucion(ruta.uuid, temaUuid, consulta, iniciar)
+                }
                 alVolver={() => navegar('/clientes')}
               />
             ) : (
@@ -349,7 +423,7 @@ function App() {
           )}
         </main>
         <footer className="pie-pagina">
-          GEOTRACK <span>·</span> ORGANIZACIÓN DE CONSULTAS GEO
+          GELAIA <span>·</span> ORGANIZACIÓN DE CONSULTAS GEO
         </footer>
       </div>
     </div>

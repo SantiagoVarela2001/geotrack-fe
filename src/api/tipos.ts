@@ -9,8 +9,10 @@ export type Permiso =
   | 'TEMAS_EDITAR'
   | 'CONSULTAS_CREAR'
   | 'CONSULTAS_VER'
+  | 'CONSULTAS_CAMBIAR_TIPO'
   | 'CONSULTAS_APROBAR'
   | 'CONSULTAS_ELIMINAR'
+  | 'CONSULTAS_EJECUTAR'
 
 export interface RespuestaAcceso {
   tokenAcceso: string
@@ -75,6 +77,55 @@ export interface DatosConsulta {
 
 export interface DatosTemaConConsultas extends DatosTema {
   consultas: DatosConsulta[]
+}
+
+export interface FuenteCitadaIA {
+  url: string
+  titulo: string | null
+  indiceInicio: number | null
+  indiceFin: number | null
+}
+
+export interface ResultadoNormalizadoConsulta {
+  nombreMarca: string
+  marcaMencionada: boolean
+  posicionMarca: number | null
+  evidenciaMarca: string | null
+  modeloNormalizador: string
+  competidores: {
+    competidorUuid: string
+    nombreCompetidor: string
+    mencionado: boolean
+    posicion: number | null
+    evidencia: string | null
+  }[]
+  fuentes: (FuenteCitadaIA & { dominio: string })[]
+}
+
+export interface DatosEjecucionConsulta {
+  uuid: string
+  consultaUuid: string
+  clienteUuid: string
+  estado: 'PENDIENTE' | 'PROCESANDO' | 'FINALIZADO' | 'FALLIDO'
+  textoConsulta: string
+  tipoConsulta: DatosConsulta['tipoConsulta']
+  nombreTema: string
+  proveedor: string
+  modelo: string
+  fechaInicio: string | null
+  fechaFin: string | null
+  duracionMs: number | null
+  mensaje: string | null
+  respuestaTexto: string | null
+  cantidadBusquedas: number | null
+  cantidadLlamadasWeb: number | null
+  tokensEntrada?: number | null
+  tokensSalida?: number | null
+  costoEstimadoUsd?: number | null
+  citas: FuenteCitadaIA[]
+  estadoNormalizacion: 'NO_REALIZADA' | 'PENDIENTE' | 'PROCESANDO' | 'FINALIZADA' | 'FALLIDA'
+  mensajeNormalizacion: string | null
+  resultadoNormalizado: ResultadoNormalizadoConsulta | null
 }
 
 export type SolicitudCrearConsulta = Pick<DatosConsulta, 'texto' | 'tipoConsulta' | 'prioridad'>

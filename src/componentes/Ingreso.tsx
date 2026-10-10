@@ -54,7 +54,7 @@ export function Ingreso({ alIngresar }: { alIngresar: (cuenta: DatosCuenta) => v
           </div>
         </div>
         <div className="ingreso-pie">
-          GEOTRACK <span>·</span> PLATAFORMA PARA AGENCIAS
+          GELAIA <span>·</span> PLATAFORMA PARA AGENCIAS
         </div>
       </section>
       <section className="ingreso-panel">

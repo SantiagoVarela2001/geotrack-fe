@@ -2,6 +2,7 @@ import type {
   DatosCliente,
   DatosConsulta,
   DatosCuenta,
+  DatosEjecucionConsulta,
   DatosGeneracionConsultas,
   DatosOrganizacion,
   DatosTema,
@@ -213,6 +214,10 @@ export const api = {
       solicitar<DatosConsulta[]>(
         `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/temas/${encodeURIComponent(temaUuid)}/consultas`,
       ),
+    obtener: (clienteUuid: string, temaUuid: string, consultaUuid: string) =>
+      solicitar<DatosConsulta>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/temas/${encodeURIComponent(temaUuid)}/consultas/${encodeURIComponent(consultaUuid)}`,
+      ),
     cambiarTipo: (
       clienteUuid: string,
       consultaUuid: string,
@@ -248,6 +253,27 @@ export const api = {
           method: 'POST',
           body: JSON.stringify(uuids),
         },
+      ),
+  },
+  ejecuciones: {
+    /** Un 204 indica que la consulta todavía no tiene intentos. */
+    async obtenerUltima(
+      clienteUuid: string,
+      consultaUuid: string,
+    ): Promise<DatosEjecucionConsulta | null> {
+      const datos = await solicitar<DatosEjecucionConsulta | undefined>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/consultas/${encodeURIComponent(consultaUuid)}/ejecuciones/ultima`,
+      )
+      return datos ?? null
+    },
+    iniciar: (clienteUuid: string, consultaUuid: string) =>
+      solicitar<DatosEjecucionConsulta>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/consultas/${encodeURIComponent(consultaUuid)}/ejecuciones`,
+        { method: 'POST' },
+      ),
+    obtener: (clienteUuid: string, ejecucionUuid: string) =>
+      solicitar<DatosEjecucionConsulta>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/ejecuciones/${encodeURIComponent(ejecucionUuid)}`,
       ),
   },
   administracion: {

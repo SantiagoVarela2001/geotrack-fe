@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { api } from '../api/clienteApi'
 import type {
   DatosCliente,
@@ -26,15 +26,20 @@ const consultaInicial: SolicitudCrearConsulta = {
 export function DetalleCliente({
   clienteUuid,
   cuenta,
+  temaInicialUuid = '',
+  alAbrirEjecucion,
   alVolver,
 }: {
   clienteUuid: string
   cuenta: DatosCuenta
+  temaInicialUuid?: string
+  alAbrirEjecucion: (consulta: DatosConsulta, temaUuid: string, iniciarAlAbrir: boolean) => void
   alVolver: () => void
 }) {
   const [cliente, cambiarCliente] = useState<DatosCliente | null>(null)
   const [temas, cambiarTemas] = useState<DatosTema[]>([])
-  const [temaUuid, cambiarTemaUuid] = useState('')
+  const [temaUuid, cambiarTemaUuid] = useState(temaInicialUuid)
+  const temaUuidActual = useRef(temaInicialUuid)
   const [consultas, cambiarConsultas] = useState<DatosConsulta[]>([])
   const [vistaAgrupada, cambiarVistaAgrupada] = useState(false)
   const [temasAgrupados, cambiarTemasAgrupados] = useState<DatosTemaConConsultas[] | null>(null)
@@ -43,7 +48,7 @@ export function DetalleCliente({
   const [generacion, cambiarGeneracion] = useState<DatosGeneracionConsultas | null>(null)
   const [cargandoInicial, cambiarCargandoInicial] = useState(true)
   const [cargandoTemas, cambiarCargandoTemas] = useState(true)
-  const [cargandoConsultas, cambiarCargandoConsultas] = useState(false)
+  const [cargandoConsultas, cambiarCargandoConsultas] = useState(Boolean(temaInicialUuid))
   const [erroresIniciales, cambiarErroresIniciales] = useState<string[]>([])
   const [errorGeneracion, cambiarErrorGeneracion] = useState('')
   const [errorTemas, cambiarErrorTemas] = useState('')
@@ -86,6 +91,8 @@ export function DetalleCliente({
   const puedeDarDeBaja = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_ELIMINAR')
   const puedeCambiarTipo =
     cliente?.estado === 'ACTIVO' && tienePermiso(cuenta.permisos, 'CONSULTAS_CAMBIAR_TIPO')
+  const puedeEjecutar =
+    cliente?.estado === 'ACTIVO' && tienePermiso(cuenta.permisos, 'CONSULTAS_EJECUTAR')
   const temaActual = temas.find((tema) => tema.uuid === temaUuid)
   const sitioWebCliente = urlWebSegura(cliente?.sitioWeb ?? null)
   const consultasVisibles = vistaAgrupada
@@ -125,6 +132,7 @@ export function DetalleCliente({
     cambiarSeleccionadas([])
     cambiarConfirmarBaja(false)
     if (uuid === temaUuid) return
+    temaUuidActual.current = uuid
     cambiarTemaUuid(uuid)
     cambiarConsultas([])
     cambiarSeleccionadas([])
@@ -145,6 +153,25 @@ export function DetalleCliente({
     cambiarConfirmarBaja(false)
     cambiarErrorAccion('')
     cambiarMensajeAccion('')
+  }
+
+  function abrirDetalleConsulta(consulta: DatosConsulta, temaDeConsultaUuid: string) {
+    if (guardando || cambiandoTipo || confirmarBaja) return
+    alAbrirEjecucion(consulta, temaDeConsultaUuid, false)
+  }
+
+  /** La acción de la tarjeta abre la página e inicia un único intento allí. */
+  function ejecutarConsulta(consulta: DatosConsulta, temaDeConsultaUuid: string) {
+    if (
+      !puedeEjecutar ||
+      consulta.estadoConsulta !== 'APROBADA' ||
+      guardando ||
+      cambiandoTipo ||
+      confirmarBaja
+    ) {
+      return
+    }
+    alAbrirEjecucion(consulta, temaDeConsultaUuid, true)
   }
 
   /** Espera cliente y proceso antes de presentar cualquier dato de la página. */
@@ -189,10 +216,12 @@ export function DetalleCliente({
       .then((datos) => {
         if (!vigente) return
         cambiarTemas(datos)
-        cambiarTemaUuid((actual) =>
-          datos.some((tema) => tema.uuid === actual) ? actual : (datos[0]?.uuid ?? ''),
-        )
-        cambiarCargandoConsultas(Boolean(datos.length))
+        if (!datos.some((tema) => tema.uuid === temaUuidActual.current)) {
+          const siguienteTemaUuid = datos[0]?.uuid ?? ''
+          temaUuidActual.current = siguienteTemaUuid
+          cambiarTemaUuid(siguienteTemaUuid)
+          cambiarCargandoConsultas(Boolean(siguienteTemaUuid))
+        }
       })
       .catch((causa) => {
         if (vigente) cambiarErrorTemas(obtenerMensajeError(causa))
@@ -802,10 +831,13 @@ export function DetalleCliente({
                     seleccionadas={seleccionadas}
                     puedeSeleccionar={puedeAprobar || puedeDarDeBaja}
                     seleccionBloqueada={guardando || cambiandoTipo || confirmarBaja}
-                    navegacionBloqueada={guardando || cambiandoTipo}
+                    navegacionBloqueada={guardando || cambiandoTipo || confirmarBaja}
                     puedeCambiarTipo={puedeCambiarTipo}
                     cambioTipoBloqueado={guardando || cambiandoTipo || confirmarBaja}
                     alSolicitarCambioTipo={solicitarCambioTipo}
+                    alAbrirDetalle={abrirDetalleConsulta}
+                    puedeEjecutar={puedeEjecutar}
+                    alEjecutar={ejecutarConsulta}
                     alAlternar={alternarSeleccion}
                     avisos={
                       <>
@@ -971,6 +1003,13 @@ export function DetalleCliente({
                                     : undefined
                                 }
                                 cambioTipoBloqueado={guardando || cambiandoTipo || confirmarBaja}
+                                alAbrirDetalle={() => abrirDetalleConsulta(consulta, temaUuid)}
+                                alEjecutar={
+                                  puedeEjecutar && consulta.estadoConsulta === 'APROBADA'
+                                    ? () => ejecutarConsulta(consulta, temaUuid)
+                                    : undefined
+                                }
+                                accionesBloqueadas={guardando || cambiandoTipo || confirmarBaja}
                                 alAlternar={
                                   puedeAprobar || puedeDarDeBaja
                                     ? () => alternarSeleccion(consulta.uuid)

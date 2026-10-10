@@ -1,4 +1,4 @@
-# Geotrack frontend
+# Gelaia frontend
 
 Interfaz React + TypeScript para los endpoints implementados en [CONTRATO_FRONTEND.md](docs/CONTRATO_FRONTEND.md). El [contexto del proyecto](docs/CONTEXTO_PROYECTO.md) describe funciones futuras que todavía no tienen API.
 
@@ -16,8 +16,8 @@ El navegador usa rutas relativas `/api`. Vite las dirige al backend; el JWT de a
 ## Producción con Docker
 
 ```bash
-docker build -t geotrack-fe .
-docker run --rm -p 8081:80 -e API_UPSTREAM=http://host.docker.internal:8080 geotrack-fe
+docker build -t gelaia-fe .
+docker run --rm -p 8081:80 -e API_UPSTREAM=http://host.docker.internal:8080 gelaia-fe
 ```
 
 `API_UPSTREAM` es el **origen alcanzable desde el contenedor** del backend, sin `/api` al final. En una red Docker compartida puede ser, por ejemplo, `http://nombre-del-servicio:8080`. En la VPS se configura al iniciar el contenedor; no hace falta reconstruir el frontend. Si hay un proxy TLS delante de Nginx, establecer también `API_FORWARDED_PROTO=https` y configurar el backend para que confíe en ese encabezado y emita la cookie con `Secure`. El frontend y `/api` deben publicarse en el mismo origen para que funcione la cookie `SameSite=Strict`.
@@ -32,8 +32,9 @@ La imagen sirve archivos estáticos con Nginx y redirige `/api` al backend. No i
 - Alta, lectura y cambio de nombre de temas.
 - Alta de consultas por lote, lectura individual y agrupada por tema, cambio de tipo en borradores, aprobación y baja lógica por lote.
 - Generación asistida de borradores con estado del proceso y actualización cada 3 segundos mientras está activo.
+- Ejecución manual de consultas aprobadas, recuperación del último intento, respuesta, citas y datos de uso.
 
-No se muestran resultados de monitoreo, métricas ni recomendaciones porque aún no existen endpoints para esas funciones. La organización para crear un usuario se elige del listado de organizaciones activas. Todavía no existe un listado de usuarios.
+Todavía no hay métricas GEO de aparición de marca ni posición, monitoreos programados o recomendaciones. La organización para crear un usuario se elige del listado de organizaciones activas. Todavía no existe un listado de usuarios.
 
 ## Verificación
 
