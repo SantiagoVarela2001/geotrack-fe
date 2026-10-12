@@ -374,8 +374,8 @@ function App() {
       </aside>
       <div className="area-principal">
         <header className="barra-superior">
-          <span>
-            GELAIA <b>/</b> {nombreVista}
+          <span className="barra-ruta">
+            <Marca compacta sobreClaro /> <b>/</b> <span>{nombreVista}</span>
           </span>
           <div>
             <span className="indicador-conexion" />{' '}

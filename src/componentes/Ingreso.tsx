@@ -59,6 +59,7 @@ export function Ingreso({ alIngresar }: { alIngresar: (cuenta: DatosCuenta) => v
       </section>
       <section className="ingreso-panel">
         <div className="ingreso-formulario">
+          <Marca sobreClaro />
           <span className="sello">
             <Icono nombre="escudo" tamano={16} /> Acceso seguro
           </span>

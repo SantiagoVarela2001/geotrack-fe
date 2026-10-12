@@ -21,25 +21,61 @@
 .marca {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   color: #fff;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.075em;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.06em;
   line-height: 1;
 }
-.marca img {
+.marca-icono {
+  display: block;
   width: 43px;
   height: 43px;
+  flex: none;
+  overflow: hidden;
+}
+.marca-icono img {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  filter: invert(1);
+  transform: scale(1.7);
+}
+.marca-nombre {
+  white-space: nowrap;
 }
 .marca-compacta {
-  font-size: 24px;
+  font-size: 21px;
 }
-.marca-compacta img {
-  width: 39px;
-  height: 39px;
+.marca-compacta .marca-icono {
+  width: 38px;
+  height: 38px;
+}
+.marca-sobre-claro {
+  gap: 2px;
+  color: var(--tinta);
+}
+.marca-sobre-claro .marca-icono {
+  width: 32px;
+  height: 32px;
+}
+.marca-sobre-claro .marca-icono img {
+  transform: scale(1.75);
+}
+.marca-logotipo {
+  display: block;
+  width: 132px;
+  height: 37px;
+  flex: none;
+  overflow: hidden;
+}
+.marca-logotipo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.85);
 }
 .sobrelinea {
   display: inline-block;
@@ -369,6 +405,11 @@
 .ingreso-formulario {
   width: min(100%, 405px);
 }
+.ingreso-formulario > .marca {
+  display: flex;
+  width: max-content;
+  margin-bottom: 30px;
+}
 .sello {
   display: inline-flex;
   align-items: center;
@@ -543,6 +584,16 @@
   margin: 0 9px;
   color: #afbdc9;
   font-weight: 400;
+}
+.barra-ruta {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  white-space: nowrap;
+}
+.barra-ruta > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .barra-superior > div {
   display: flex;
@@ -2116,9 +2167,12 @@
   .marca-compacta {
     font-size: 20px;
   }
-  .marca-compacta img {
+  .marca-compacta .marca-icono {
     width: 33px;
     height: 33px;
+  }
+  .barra-superior .marca-logotipo {
+    display: none;
   }
   .lateral-contenido {
     order: 3;

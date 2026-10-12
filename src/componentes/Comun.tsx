@@ -100,12 +100,26 @@ export function Icono({
   )
 }
 
-export function Marca({ compacta = false }: { compacta?: boolean }) {
+export function Marca({
+  compacta = false,
+  sobreClaro = false,
+}: {
+  compacta?: boolean
+  sobreClaro?: boolean
+}) {
   return (
-    <div className={`marca ${compacta ? 'marca-compacta' : ''}`}>
-      <img src="/logo.svg" alt="" />
-      <span>gelaia</span>
-    </div>
+    <span className={`marca ${compacta ? 'marca-compacta' : ''} ${sobreClaro ? 'marca-sobre-claro' : ''}`}>
+      <span className="marca-icono" aria-hidden="true">
+        <img src={sobreClaro ? '/icono-sin-fondo.png' : '/icono-fondo-blanco.png'} alt="" />
+      </span>
+      {sobreClaro ? (
+        <span className="marca-logotipo">
+          <img src="/logo-completo.png" alt="Gelaia" />
+        </span>
+      ) : (
+        <span className="marca-nombre">Gelaia</span>
+      )}
+    </span>
   )
 }
 
