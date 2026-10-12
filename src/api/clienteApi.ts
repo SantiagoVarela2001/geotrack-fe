@@ -4,6 +4,7 @@ import type {
   DatosCuenta,
   DatosEjecucionConsulta,
   DatosGeneracionConsultas,
+  DatosMetricasCliente,
   DatosOrganizacion,
   DatosTema,
   DatosTemaConConsultas,
@@ -175,6 +176,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(datos),
       }),
+  },
+  metricas: {
+    obtener: (clienteUuid: string, desde: string, hasta: string) =>
+      solicitar<DatosMetricasCliente>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/metricas?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`,
+      ),
   },
   temas: {
     listar: (clienteUuid: string) =>

@@ -969,6 +969,11 @@
 .detalle-aviso {
   margin-bottom: 12px;
 }
+.detalle-acceso-metricas {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
 .resumen-cliente {
   margin-bottom: 11px;
   display: grid;
@@ -978,6 +983,256 @@
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 2px 5px #14243b08;
+}
+
+/* Métricas GEO por cliente */
+.pagina-metricas {
+  width: min(100%, 1180px);
+  margin: 0 auto;
+}
+.metricas-cabecera {
+  margin-bottom: 22px;
+}
+.metricas-cabecera h1 {
+  margin: 6px 0 7px;
+  font-size: clamp(27px, 3vw, 37px);
+  letter-spacing: -0.04em;
+}
+.metricas-cabecera p,
+.metricas-periodo {
+  margin: 0;
+  color: #64788a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.metricas-filtros {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 210px)) auto;
+  align-items: end;
+  justify-content: start;
+  gap: 12px;
+  padding: 17px 20px;
+  border: 1px solid var(--linea);
+  border-radius: 8px;
+  background: #fff;
+}
+.metricas-filtros-rapidos {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.metricas-filtro-rapido {
+  border-color: #cddae4;
+  background: #fff;
+  color: #243b56;
+}
+.metricas-filtro-rapido:hover {
+  border-color: #9cb4cb;
+  background: #f5f9fc;
+}
+.metricas-filtro-rapido[aria-pressed='true'] {
+  border-color: #1561cf;
+  background: #eaf2ff;
+  color: #1455b3;
+}
+.metricas-filtros label {
+  display: block;
+  margin-bottom: 6px;
+  color: #536c80;
+  font-size: 11px;
+  font-weight: 700;
+}
+.metricas-filtros input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #cddae4;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--tinta);
+}
+.metricas-filtros > .aviso {
+  grid-column: 1 / -1;
+}
+.metricas-error {
+  margin-top: 18px;
+}
+.metricas-contenido {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+.metricas-seccion {
+  padding: 22px;
+  border: 1px solid var(--linea);
+  border-radius: 8px;
+  background: #fff;
+}
+.metricas-seccion h2 {
+  margin: 0 0 16px;
+  font-size: 17px;
+  letter-spacing: -0.025em;
+}
+.metricas-resumen,
+.metricas-tasas {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+.metricas-tasas {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.metricas-indicador {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid #dfe9ed;
+  border-radius: 7px;
+  background: #f8fbfc;
+}
+.metricas-indicador dt {
+  color: #60778a;
+  font-size: 11px;
+  font-weight: 700;
+}
+.metricas-indicador dd {
+  margin: 8px 0 0;
+  color: #17334b;
+  font-size: clamp(22px, 2.4vw, 29px);
+  font-weight: 750;
+  line-height: 1.15;
+}
+.metricas-indicador small {
+  display: block;
+  margin-top: 8px;
+  color: #698092;
+  font-size: 11px;
+}
+.metricas-nota {
+  margin: 15px 0 0;
+  color: #718494;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.metricas-vacio {
+  margin: 0;
+  padding: 25px 18px;
+  border: 1px dashed #d9e5eb;
+  border-radius: 7px;
+  color: #718494;
+  font-size: 13px;
+  text-align: center;
+}
+.metricas-serie,
+.metricas-competidores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(265px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.metricas-serie {
+  max-height: 670px;
+  overflow-y: auto;
+}
+.metricas-dia,
+.metricas-competidores li {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid #e0e9ed;
+  border-radius: 7px;
+  background: #fbfdfd;
+}
+.metricas-dia-cabecera,
+.metricas-competidor-cabecera {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: #1d3a50;
+  font-size: 12px;
+}
+.metricas-dia-cabecera span {
+  flex: none;
+  color: #617a8c;
+  font-size: 11px;
+}
+.metricas-dia-pista,
+.metricas-competidor-pista {
+  height: 7px;
+  margin: 11px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2edf1;
+}
+.metricas-dia-pista span,
+.metricas-competidor-pista span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #159cac;
+}
+.metricas-dia-estados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 9px;
+  color: #596f80;
+  font-size: 10px;
+}
+.metricas-dia-tasas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 12px 0 0;
+}
+.metricas-dia-tasas dt {
+  color: #788b98;
+  font-size: 9px;
+}
+.metricas-dia-tasas dd {
+  margin: 3px 0 0;
+  color: #24475c;
+  font-size: 11px;
+  font-weight: 750;
+}
+.metricas-dia-modelos {
+  margin: 12px 0 0;
+  color: #718494;
+  font-size: 10px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.metricas-competidor-cabecera span {
+  flex: none;
+  color: #137d8a;
+  font-weight: 750;
+}
+.metricas-competidores li small {
+  color: #718494;
+  font-size: 11px;
+}
+@media (max-width: 900px) {
+  .metricas-resumen,
+  .metricas-tasas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .metricas-filtros {
+    grid-template-columns: 1fr;
+  }
+  .metricas-filtros > .boton {
+    width: 100%;
+  }
+  .metricas-resumen,
+  .metricas-tasas {
+    grid-template-columns: 1fr;
+  }
+  .metricas-seccion {
+    padding: 18px;
+  }
 }
 .dato-resumen {
   min-width: 0;

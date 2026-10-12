@@ -1,6 +1,6 @@
 # Contrato para el frontend
 
-Estado verificado el 9 de octubre de 2026. Este documento describe la API **implementada hoy**. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
+Estado documentado al 12 de octubre de 2026. Este documento describe la API **implementada hoy**. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
 
 ## Qué puede construir el frontend ahora
 
@@ -8,6 +8,7 @@ Estado verificado el 9 de octubre de 2026. Este documento describe la API **impl
 - Para `SYSADMIN`: alta y listado de organizaciones, y alta de usuarios. Todavía no hay listado de usuarios.
 - Para usuarios de organización: alta y lectura de clientes monitoreados y competidores; alta, lectura y cambio de nombre de temas; alta, lectura, aprobación y baja lógica de consultas.
 - Para usuarios de organización con CONSULTAS_CREAR: generación asistida de quince borradores por cliente y consulta de su proceso.
+- Para usuarios con `CONSULTAS_VER`: lectura de ejecuciones manuales y métricas GEO agregadas por cliente y período.
 - Para `SYSADMIN`: lectura global de clientes, temas y consultas. Sus permisos actuales no habilitan escribir esos recursos.
 
 El backend distingue cuentas `PLATAFORMA` (SYSADMIN, sin organización) y `ORGANIZACION` (una sola organización). Los roles iniciales son `SYSADMIN`, `PROPIETARIO` y `MIEMBRO`. Un usuario también puede recibir permisos directamente. Para mostrar u ocultar acciones, consultar `GET /api/autenticacion/actual` y usar su array `permisos`; la API vuelve a comprobar permisos y pertenencia en cada petición.
@@ -83,6 +84,7 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 | `POST /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}/ejecuciones` | — | `202 DatosEjecucionConsulta` | `CONSULTAS_EJECUTAR` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/ejecuciones/{ejecucionUuid}` | — | `200 DatosEjecucionConsulta` | `CONSULTAS_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}/ejecuciones/ultima` | — | `200 DatosEjecucionConsulta` o `204` | `CONSULTAS_VER` |
+| `GET /api/clientes-monitoreados/{clienteUuid}/metricas?desde=AAAA-MM-DD&hasta=AAAA-MM-DD` | — | `200 DatosMetricasCliente` | `CONSULTAS_VER` |
 
 `GET /actuator/health` es público y devuelve el estado técnico de la aplicación; no es una función del producto.
 
@@ -371,7 +373,67 @@ Los tres endpoints de ejecución usan el mismo DTO. Para usuarios sin rol activo
 
 Al abrir la vista de una consulta, pedir primero `.../ejecuciones/ultima`. Si `estado` está en curso, consultar el intento por UUID cada 3 segundos mientras la página esté abierta. Si `estado` es `FINALIZADO` pero `estadoNormalizacion` está `PENDIENTE` o `PROCESANDO`, continuar el polling hasta `FINALIZADA` o `FALLIDA`. Si falla la normalización, conservar la respuesta original y mostrar `mensajeNormalizacion`; `resultadoNormalizado` queda `null`. En ejecuciones anteriores a V12 o cuando falla la ejecución original, `estadoNormalizacion` es `NO_REALIZADA`. Un reinicio o vencimiento puede pasar cada fase a su estado de fallo independiente. `mensaje` describe un fallo de la ejecución original.
 
-OpenAI recibe el texto original con búsqueda web opcional (`tool_choice: "auto"`). `cantidadBusquedas` cuenta acciones de búsqueda y `cantidadLlamadasWeb` cuenta llamadas a la herramienta; la estimación de costo usa esta última. Si hay citas, mostrarlas visibles y clicables. Texto, tipo y tema son una instantánea histórica. La respuesta literal completa se conserva en la base para auditoría. El resultado normalizado describe una sola ejecución; todavía no se calculan métricas GEO agregadas. La solicitud no incluye ubicación de búsqueda: la configuración predeterminada del proveedor puede orientar resultados a Estados Unidos, incluso si el cliente tiene otro país guardado. Habrá que definir la localización antes de comparar países.
+OpenAI recibe el texto original con búsqueda web opcional (`tool_choice: "auto"`). `cantidadBusquedas` cuenta acciones de búsqueda y `cantidadLlamadasWeb` cuenta llamadas a la herramienta; la estimación de costo usa esta última. Si hay citas, mostrarlas visibles y clicables. Texto, tipo y tema son una instantánea histórica. La respuesta literal completa se conserva en la base para auditoría. El resultado normalizado describe una sola ejecución. La solicitud no incluye ubicación de búsqueda: la configuración predeterminada del proveedor puede orientar resultados a Estados Unidos, incluso si el cliente tiene otro país guardado. Habrá que definir la localización antes de comparar países.
+
+### Métricas GEO por cliente
+
+`GET /api/clientes-monitoreados/{clienteUuid}/metricas?desde=2026-10-01&hasta=2026-10-31` exige ambas fechas ISO y toma los extremos inclusive según el día argentino de cada ejecución. Requiere `CONSULTAS_VER`. Una cuenta de organización solo puede leer sus clientes; SYSADMIN puede leer cualquier cliente activo. Devuelve `400` si falta una fecha, el formato es inválido o `desde` es posterior a `hasta`; otro cliente responde `404`.
+
+```json
+{
+  "clienteUuid": "33333333-3333-4333-8333-333333333333",
+  "desde": "2026-10-01",
+  "hasta": "2026-10-31",
+  "ejecuciones": 4,
+  "analizadas": 2,
+  "pendientes": 1,
+  "fallidas": 1,
+  "mencionesMarca": 1,
+  "tasaMencionMarca": 50.00,
+  "conCitas": 2,
+  "tasaCitas": 100.00,
+  "conCitasSitioCliente": 1,
+  "tasaCitasSitioCliente": 50.00,
+  "serieDiaria": [{
+    "dia": "2026-10-09",
+    "ejecuciones": 1,
+    "analizadas": 0,
+    "pendientes": 0,
+    "fallidas": 1,
+    "mencionesMarca": 0,
+    "tasaMencionMarca": null,
+    "conCitas": 0,
+    "tasaCitas": null,
+    "conCitasSitioCliente": 0,
+    "tasaCitasSitioCliente": null,
+    "modelosAnalizados": {}
+  }, {
+    "dia": "2026-10-10",
+    "ejecuciones": 3,
+    "analizadas": 2,
+    "pendientes": 1,
+    "fallidas": 0,
+    "mencionesMarca": 1,
+    "tasaMencionMarca": 50.00,
+    "conCitas": 2,
+    "tasaCitas": 100.00,
+    "conCitasSitioCliente": 1,
+    "tasaCitasSitioCliente": 50.00,
+    "modelosAnalizados": {"gpt-6.1-sol": 1, "gpt-6-luna": 1}
+  }],
+  "competidores": [{
+    "competidorUuid": "99999999-9999-4999-8999-999999999999",
+    "nombre": "Taller Sur",
+    "evaluaciones": 2,
+    "menciones": 1,
+    "tasaMencion": 50.00
+  }]
+}
+```
+
+La serie tiene una sola entrada por día con ejecuciones, aunque se hayan usado Sol y Luna; `modelosAnalizados` informa cuántas mediciones completas aportó cada modelo. Solo entran al denominador las ejecuciones `FINALIZADO` con normalización `FINALIZADA` y resultado guardado. `pendientes` y `fallidas` se informan aparte. Una respuesta cuenta una sola vez en `conCitas` si cita alguna fuente, y una sola vez en `conCitasSitioCliente` si cita el dominio del sitio del cliente o un subdominio. Las tasas son porcentajes entre 0 y 100 con dos decimales; cuando el denominador es cero llegan como `null`, no como cero. La tasa de mención combina todas las consultas, incluso las que nombran la marca: no debe rotularse como presencia espontánea. Cada competidor usa como denominador las respuestas en las que fue evaluado, por lo que puede diferir del total del cliente. Los días sin ejecuciones no aparecen en `serieDiaria`.
+
+Se preservan mediciones de consultas luego dadas de baja. Los registros antiguos que quedaron sin `diaEjecucion` durante V13 no participan en estas métricas para evitar duplicados del mismo día. Las tasas se calculan al pedirlas, sin caché ni tabla de métricas. La comparación de citas propias usa el sitio web actual del cliente; si más adelante se permite editarlo, habrá que conservar el dominio por ejecución para mantener la clasificación histórica.
 
 ## Errores y estados para la interfaz
 
@@ -397,6 +459,6 @@ No todas las rutas usan el mismo cuerpo de error: algunas respuestas de autentic
 - Listar usuarios; editar o eliminar usuarios; cambiar contraseñas.
 - Editar clientes o competidores, archivar/reactivar clientes desde la API.
 - Dar de baja temas mediante HTTP.
-- Programar monitoreos, normalizar menciones y posiciones, consultar métricas, reportes o recomendaciones; ejecutar contra proveedores adicionales.
+- Programar monitoreos, consultar reportes o recomendaciones; ejecutar contra proveedores adicionales.
 
 Estas funciones aparecen en la visión del producto, pero el frontend aún no puede conectarlas a una API existente. Para ampliar el contrato, actualizar este documento cuando se implemente cada función. La colección [consultas.postman_collection.json](consultas.postman_collection.json) contiene las rutas de gestión de consultas anteriores a la ejecución manual.

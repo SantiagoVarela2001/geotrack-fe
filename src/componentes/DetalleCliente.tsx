@@ -28,12 +28,14 @@ export function DetalleCliente({
   cuenta,
   temaInicialUuid = '',
   alAbrirEjecucion,
+  alVerMetricas,
   alVolver,
 }: {
   clienteUuid: string
   cuenta: DatosCuenta
   temaInicialUuid?: string
   alAbrirEjecucion: (consulta: DatosConsulta, temaUuid: string, iniciarAlAbrir: boolean) => void
+  alVerMetricas: () => void
   alVolver: () => void
 }) {
   const [cliente, cambiarCliente] = useState<DatosCliente | null>(null)
@@ -627,6 +629,13 @@ export function DetalleCliente({
           {puedeVerConsultas && generacion?.estado === 'FINALIZADO' && generacion.advertencia && (
             <div className="detalle-aviso">
               <Aviso tipo="informacion">{generacion.advertencia}</Aviso>
+            </div>
+          )}
+          {puedeVerConsultas && cliente.estado === 'ACTIVO' && (
+            <div className="detalle-acceso-metricas">
+              <button className="boton boton-secundario boton-chico" type="button" onClick={alVerMetricas}>
+                Ver métricas GEO <Icono nombre="flecha" tamano={16} />
+              </button>
             </div>
           )}
           <div className="resumen-cliente">

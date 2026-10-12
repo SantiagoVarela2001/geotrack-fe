@@ -128,6 +128,47 @@ export interface DatosEjecucionConsulta {
   resultadoNormalizado: ResultadoNormalizadoConsulta | null
 }
 
+export interface DatosMetricasDia {
+  dia: string
+  ejecuciones: number
+  analizadas: number
+  pendientes: number
+  fallidas: number
+  mencionesMarca: number
+  tasaMencionMarca: number | null
+  conCitas: number
+  tasaCitas: number | null
+  conCitasSitioCliente: number
+  tasaCitasSitioCliente: number | null
+  modelosAnalizados: Record<string, number>
+}
+
+export interface DatosMetricasCompetidor {
+  competidorUuid: string
+  nombre: string
+  evaluaciones: number
+  menciones: number
+  tasaMencion: number | null
+}
+
+export interface DatosMetricasCliente {
+  clienteUuid: string
+  desde: string
+  hasta: string
+  ejecuciones: number
+  analizadas: number
+  pendientes: number
+  fallidas: number
+  mencionesMarca: number
+  tasaMencionMarca: number | null
+  conCitas: number
+  tasaCitas: number | null
+  conCitasSitioCliente: number
+  tasaCitasSitioCliente: number | null
+  serieDiaria: DatosMetricasDia[]
+  competidores: DatosMetricasCompetidor[]
+}
+
 export type SolicitudCrearConsulta = Pick<DatosConsulta, 'texto' | 'tipoConsulta' | 'prioridad'>
 
 export interface DatosGeneracionConsultas {

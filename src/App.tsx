@@ -7,12 +7,14 @@ import { DetalleCliente } from './componentes/DetalleCliente'
 import { DetalleEjecucionConsulta } from './componentes/DetalleEjecucionConsulta'
 import { FormularioCliente } from './componentes/FormularioCliente'
 import { Ingreso } from './componentes/Ingreso'
+import { MetricasCliente } from './componentes/MetricasCliente'
 import { obtenerMensajeError, tienePermiso } from './utilidades'
 import './App.css'
 
 type Ruta =
   | { tipo: 'clientes' }
   | { tipo: 'cliente'; uuid: string; temaUuid?: string }
+  | { tipo: 'metricas'; clienteUuid: string }
   | {
       tipo: 'ejecucion'
       clienteUuid: string
@@ -37,6 +39,8 @@ function leerRuta(): Ruta {
       iniciarAlAbrir: false,
     }
   }
+  const metricas = /^\/clientes\/([0-9a-f-]+)\/metricas$/i.exec(ruta)
+  if (metricas) return { tipo: 'metricas', clienteUuid: metricas[1] }
   const tema = /^\/clientes\/([0-9a-f-]+)\/temas\/([0-9a-f-]+)$/i.exec(ruta)
   if (tema) return { tipo: 'cliente', uuid: tema[1], temaUuid: tema[2] }
   const cliente = /^\/clientes\/([0-9a-f-]+)$/i.exec(ruta)
@@ -326,9 +330,11 @@ function App() {
       ? 'Administración'
       : ruta.tipo === 'cliente'
         ? 'Detalle del cliente'
-        : ruta.tipo === 'ejecucion'
-          ? 'Ejecución de consulta'
-          : 'Clientes'
+        : ruta.tipo === 'metricas'
+          ? 'Métricas GEO'
+          : ruta.tipo === 'ejecucion'
+            ? 'Ejecución de consulta'
+            : 'Clientes'
 
   return (
     <div className="aplicacion">
@@ -403,6 +409,17 @@ function App() {
             ) : (
               <Aviso tipo="informacion">Tu cuenta no tiene permiso para ver consultas.</Aviso>
             )
+          ) : ruta.tipo === 'metricas' ? (
+            tienePermiso(cuenta.permisos, 'CONSULTAS_VER') ? (
+              <MetricasCliente
+                key={ruta.clienteUuid}
+                clienteUuid={ruta.clienteUuid}
+                cuenta={cuenta}
+                alVolver={() => navegar(`/clientes/${ruta.clienteUuid}`)}
+              />
+            ) : (
+              <Aviso tipo="informacion">Tu cuenta no tiene permiso para ver métricas GEO.</Aviso>
+            )
           ) : ruta.tipo === 'cliente' ? (
             tienePermiso(cuenta.permisos, 'CLIENTES_VER') ? (
               <DetalleCliente
@@ -413,6 +430,7 @@ function App() {
                 alAbrirEjecucion={(consulta, temaUuid, iniciar) =>
                   abrirEjecucion(ruta.uuid, temaUuid, consulta, iniciar)
                 }
+                alVerMetricas={() => navegar(`/clientes/${ruta.uuid}/metricas`)}
                 alVolver={() => navegar('/clientes')}
               />
             ) : (
