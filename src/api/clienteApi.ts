@@ -6,12 +6,14 @@ import type {
   DatosGeneracionConsultas,
   DatosMetricasCliente,
   DatosOrganizacion,
+  DatosPlan,
   DatosTema,
   DatosTemaConConsultas,
   RespuestaAcceso,
   RespuestaUsuario,
   SolicitudCrearCliente,
   SolicitudCrearConsulta,
+  SolicitudCrearOrganizacion,
 } from './tipos'
 
 let tokenAcceso: string | null = null
@@ -284,11 +286,12 @@ export const api = {
       ),
   },
   administracion: {
+    listarPlanes: () => solicitar<DatosPlan[]>('/api/planes'),
     listarOrganizaciones: () => solicitar<DatosOrganizacion[]>('/api/organizaciones'),
-    crearOrganizacion: (nombre: string) =>
+    crearOrganizacion: (datos: SolicitudCrearOrganizacion) =>
       solicitar<DatosOrganizacion>('/api/organizaciones', {
         method: 'POST',
-        body: JSON.stringify({ nombre }),
+        body: JSON.stringify(datos),
       }),
     crearUsuario: (
       organizacionUuid: string,

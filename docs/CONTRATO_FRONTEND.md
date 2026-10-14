@@ -1,11 +1,11 @@
 # Contrato para el frontend
 
-Estado documentado al 12 de octubre de 2026. Este documento describe la API **implementada hoy**. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
+Estado documentado al 14 de octubre de 2026. Este documento describe la API **implementada hoy**. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
 
 ## Qué puede construir el frontend ahora
 
 - Inicio y cierre de sesión, renovación del acceso y consulta de la cuenta actual.
-- Para `SYSADMIN`: alta y listado de organizaciones, y alta de usuarios. Todavía no hay listado de usuarios.
+- Para `SYSADMIN`: lectura de planes, alta y listado de organizaciones, y alta de usuarios. Todavía no hay listado de usuarios.
 - Para usuarios de organización: alta y lectura de clientes monitoreados y competidores; alta, lectura y cambio de nombre de temas; alta, lectura, aprobación y baja lógica de consultas.
 - Para usuarios de organización con CONSULTAS_CREAR: generación asistida de quince borradores por cliente y consulta de su proceso.
 - Para usuarios con `CONSULTAS_VER`: lectura de ejecuciones manuales y métricas GEO agregadas por cliente y período.
@@ -62,6 +62,7 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 | `POST /api/autenticacion/renovar` | — | `200 RespuestaAcceso` + cookie rotada | Cookie + `X-Solicitud-API: 1` |
 | `POST /api/autenticacion/salir` | — | `204` + cookie borrada | Cookie + `X-Solicitud-API: 1` |
 | `GET /api/autenticacion/actual` | — | `200 DatosCuenta` | JWT |
+| `GET /api/planes` | — | `200 DatosPlan[]` | Rol `SYSADMIN` + `PLANES_VER` |
 | `POST /api/organizaciones` | `SolicitudCrearOrganizacion` | `201 RespuestaOrganizacion` | Rol `SYSADMIN` + `ORGANIZACIONES_CREAR` |
 | `GET /api/organizaciones` | — | `200 RespuestaOrganizacion[]` | Rol `SYSADMIN` + `ORGANIZACIONES_VER` |
 | `POST /api/organizaciones/{organizacionUuid}/usuarios` | `SolicitudCrearUsuario` | `201 RespuestaUsuario` | Rol `SYSADMIN` + `USUARIOS_CREAR` |
@@ -90,11 +91,21 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 
 ## Organizaciones y usuarios
 
-Solo `SYSADMIN` puede administrar las organizaciones y dar de alta usuarios. Una organización se crea vacía:
+Solo `SYSADMIN` puede administrar las organizaciones y dar de alta usuarios. El plan es obligatorio al crear una organización vacía:
 
 ```json
-{"nombre":"Agencia Norte"}
+{"nombre":"Agencia Norte","planUuid":"00000000-0000-4000-8000-000000000201"}
 ```
+
+El selector de planes consulta `GET /api/planes`, que devuelve los planes activos ordenados por nombre. Requiere `PLANES_VER` y devuelve objetos con `uuid`, `nombre` y `limiteClientesActivos`:
+
+```json
+[
+  {"uuid":"00000000-0000-4000-8000-000000000201","nombre":"Básico","limiteClientesActivos":5}
+]
+```
+
+El `uuid` elegido se envía como `planUuid`. Un plan omitido, inválido o inexistente devuelve `400`. El límite corresponde a clientes monitoreados activos de la organización.
 
 `POST /api/organizaciones` devuelve `201` con, por ejemplo:
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api } from '../api/clienteApi'
-import type { DatosCuenta, DatosOrganizacion, RespuestaUsuario } from '../api/tipos'
+import type { DatosCuenta, DatosOrganizacion, DatosPlan, RespuestaUsuario } from '../api/tipos'
 import { obtenerMensajeError, tienePermiso } from '../utilidades'
 import { Aviso, Icono } from './Comun'
 
@@ -9,9 +9,16 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
     cuenta.roles.includes('SYSADMIN') && tienePermiso(cuenta.permisos, 'ORGANIZACIONES_VER')
   const puedeCrearOrganizacion =
     cuenta.roles.includes('SYSADMIN') && tienePermiso(cuenta.permisos, 'ORGANIZACIONES_CREAR')
+  const puedeVerPlanes =
+    cuenta.roles.includes('SYSADMIN') && tienePermiso(cuenta.permisos, 'PLANES_VER')
   const puedeCrearUsuario =
     cuenta.roles.includes('SYSADMIN') && tienePermiso(cuenta.permisos, 'USUARIOS_CREAR')
   const [nombreOrganizacion, cambiarNombreOrganizacion] = useState('')
+  const [planes, cambiarPlanes] = useState<DatosPlan[]>([])
+  const [planUuid, cambiarPlanUuid] = useState('')
+  const [cargandoPlanes, cambiarCargandoPlanes] = useState(puedeCrearOrganizacion && puedeVerPlanes)
+  const [errorPlanes, cambiarErrorPlanes] = useState('')
+  const [revisionPlanes, cambiarRevisionPlanes] = useState(0)
   const [organizaciones, cambiarOrganizaciones] = useState<DatosOrganizacion[]>([])
   const [organizacionCreada, cambiarOrganizacionCreada] = useState<DatosOrganizacion | null>(null)
   const [organizacionUuid, cambiarOrganizacionUuid] = useState('')
@@ -27,6 +34,27 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
   const [errorUsuario, cambiarErrorUsuario] = useState('')
   const [guardandoOrganizacion, cambiarGuardandoOrganizacion] = useState(false)
   const [guardandoUsuario, cambiarGuardandoUsuario] = useState(false)
+
+  useEffect(() => {
+    if (!puedeCrearOrganizacion || !puedeVerPlanes) return
+    let vigente = true
+    api.administracion
+      .listarPlanes()
+      .then((datos) => {
+        if (!vigente) return
+        cambiarPlanes(datos)
+        cambiarPlanUuid((actual) => (datos.some((plan) => plan.uuid === actual) ? actual : ''))
+      })
+      .catch((causa) => {
+        if (vigente) cambiarErrorPlanes(obtenerMensajeError(causa))
+      })
+      .finally(() => {
+        if (vigente) cambiarCargandoPlanes(false)
+      })
+    return () => {
+      vigente = false
+    }
+  }, [puedeCrearOrganizacion, puedeVerPlanes, revisionPlanes])
 
   useEffect(() => {
     if (!puedeVerOrganizaciones) return
@@ -47,14 +75,21 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
     }
   }, [puedeVerOrganizaciones, revisionOrganizaciones])
 
-  /** Incorpora el alta al selector y descarta un listado iniciado antes de crearla. */
+  /** Envía el plan elegido e incorpora el alta al selector de organizaciones. */
   async function crearOrganizacion(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     cambiarErrorOrganizacion('')
     cambiarOrganizacionCreada(null)
+    if (!planes.some((plan) => plan.uuid === planUuid)) {
+      cambiarErrorOrganizacion('Seleccioná un plan disponible.')
+      return
+    }
     cambiarGuardandoOrganizacion(true)
     try {
-      const creada = await api.administracion.crearOrganizacion(nombreOrganizacion.trim())
+      const creada = await api.administracion.crearOrganizacion({
+        nombre: nombreOrganizacion.trim(),
+        planUuid,
+      })
       cambiarOrganizacionCreada(creada)
       cambiarOrganizaciones((actuales) =>
         [...actuales, creada].sort((primera, segunda) =>
@@ -64,6 +99,7 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
       cambiarOrganizacionUuid(creada.uuid)
       if (cargandoOrganizaciones) cambiarRevisionOrganizaciones((actual) => actual + 1)
       cambiarNombreOrganizacion('')
+      cambiarPlanUuid('')
     } catch (causa) {
       cambiarErrorOrganizacion(obtenerMensajeError(causa))
     } finally {
@@ -134,6 +170,52 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
                   placeholder="Ej. Agencia Norte"
                 />
               </label>
+              <label>
+                Plan
+                <select
+                  required
+                  value={planUuid}
+                  disabled={!puedeVerPlanes || cargandoPlanes || planes.length === 0}
+                  onChange={(evento) => cambiarPlanUuid(evento.target.value)}
+                >
+                  <option value="" disabled>
+                    {!puedeVerPlanes
+                      ? 'Sin permiso para ver planes'
+                      : cargandoPlanes
+                        ? 'Cargando planes…'
+                        : planes.length === 0
+                          ? 'No hay planes disponibles'
+                          : 'Seleccioná un plan'}
+                  </option>
+                  {planes.map((plan) => (
+                    <option key={plan.uuid} value={plan.uuid}>
+                      {plan.nombre} · Hasta {plan.limiteClientesActivos}{' '}
+                      {plan.limiteClientesActivos === 1 ? 'cliente activo' : 'clientes activos'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {!puedeVerPlanes && (
+                <Aviso tipo="informacion">
+                  Tu cuenta necesita el permiso PLANES_VER para elegir un plan.
+                </Aviso>
+              )}
+              {errorPlanes && (
+                <div>
+                  <Aviso>{errorPlanes}</Aviso>
+                  <button
+                    type="button"
+                    className="boton boton-secundario reintentar"
+                    onClick={() => {
+                      cambiarErrorPlanes('')
+                      cambiarCargandoPlanes(true)
+                      cambiarRevisionPlanes((actual) => actual + 1)
+                    }}
+                  >
+                    Reintentar carga
+                  </button>
+                </div>
+              )}
               {errorOrganizacion && <Aviso>{errorOrganizacion}</Aviso>}
               {organizacionCreada && (
                 <Aviso tipo="exito">
@@ -143,7 +225,7 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
               <button
                 type="submit"
                 className="boton boton-primario"
-                disabled={guardandoOrganizacion}
+                disabled={guardandoOrganizacion || !puedeVerPlanes || cargandoPlanes || planes.length === 0}
               >
                 {guardandoOrganizacion ? 'Creando…' : 'Crear organización'}{' '}
                 <Icono nombre="flecha" tamano={17} />
