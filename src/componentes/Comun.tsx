@@ -16,6 +16,10 @@ type NombreIcono =
   | 'capas'
   | 'estrella'
   | 'escudo'
+  | 'ver'
+  | 'archivar'
+  | 'reactivar'
+  | 'grafico'
 
 export function Icono({
   nombre,
@@ -80,6 +84,30 @@ export function Icono({
       <>
         <path d="M12 2 4 5v6c0 5 3.4 8.8 8 11 4.6-2.2 8-6 8-11V5l-8-3Z" />
         <path d="m9 12 2 2 4-4" />
+      </>
+    ),
+    ver: (
+      <>
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+        <circle cx="12" cy="12" r="2.5" />
+      </>
+    ),
+    archivar: (
+      <>
+        <path d="M3 4h18v4H3zM5 8v12h14V8M12 11v5m-3-3 3 3 3-3" />
+      </>
+    ),
+    reactivar: (
+      <>
+        <path d="M3 4h18v4H3zM5 8v12h14V8M12 16v-5m-3 3 3-3 3 3" />
+      </>
+    ),
+    grafico: (
+      <>
+        <path d="M3 20h18" />
+        <rect x="6" y="12" width="3" height="6" rx="0.5" />
+        <rect x="11" y="8" width="3" height="10" rx="0.5" />
+        <rect x="16" y="5" width="3" height="13" rx="0.5" />
       </>
     ),
   }

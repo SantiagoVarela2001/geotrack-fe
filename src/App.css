@@ -846,19 +846,14 @@
   background: #fff;
   transition: background 0.15s;
 }
-.cliente-enlace {
+.cliente-datos {
   min-width: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: 40px minmax(150px, 1.5fr) minmax(105px, 1fr) minmax(105px, 0.8fr) 85px 18px;
+  grid-template-columns: 40px minmax(150px, 1.5fr) minmax(105px, 1fr) minmax(105px, 0.8fr) 85px;
   align-items: center;
   gap: 16px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  text-align: left;
   color: #788b9a;
-  cursor: pointer;
 }
 .cliente-fila:last-child {
   border-bottom: 0;
@@ -866,16 +861,68 @@
 .cliente-fila:hover {
   background: #f6fafc;
 }
-.cliente-enlace:hover > svg {
-  color: #1466aa;
-  transform: translateX(2px);
-}
-.cliente-enlace:focus-visible {
-  outline: 2px solid #348ac7;
-  outline-offset: 5px;
+.cliente-acciones {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-left: auto;
+  padding-left: 12px;
+  border-left: 1px solid #e3ebf1;
 }
 .cliente-accion {
-  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #d5e0e9;
+  border-radius: 9px;
+  background: #fff;
+  color: #41637e;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.cliente-accion:not(:disabled):hover {
+  transform: translateY(-1px);
+  border-color: #a9c6da;
+  background: #eaf4fb;
+  color: #1d668f;
+}
+.cliente-accion-archivar,
+.detalle-accion-archivar {
+  color: #8c6337;
+}
+.cliente-accion-archivar:not(:disabled):hover,
+.detalle-accion-archivar:not(:disabled):hover {
+  border-color: #d8c29e;
+  background: #fbf3e5;
+  color: #80551f;
+}
+.cliente-accion-reactivar,
+.detalle-accion-reactivar {
+  color: #27765c;
+}
+.cliente-accion-reactivar:not(:disabled):hover,
+.detalle-accion-reactivar:not(:disabled):hover {
+  border-color: #aad9c3;
+  background: #ecf8f1;
+  color: #1c6a50;
+}
+.cliente-accion-metricas,
+.detalle-accion-metricas {
+  color: #62539a;
+}
+.cliente-accion-contenedor {
+  display: inline-flex;
+}
+.cliente-accion-metricas:disabled {
+  pointer-events: none;
+}
+.cliente-accion-metricas:not(:disabled):hover,
+.detalle-accion-metricas:not(:disabled):hover {
+  border-color: #c5bce9;
+  background: #f3f0fc;
+  color: #514387;
 }
 .cliente-avatar {
   width: 39px;
@@ -992,6 +1039,11 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
+}
+.detalle-accion {
+  min-height: 38px;
+  padding: 8px 13px;
+  border-radius: 9px;
 }
 .resumen-cliente {
   margin-bottom: 11px;
@@ -1958,6 +2010,36 @@
   flex-wrap: wrap;
   gap: 9px;
 }
+.dialogo-estado-archivar .dialogo-tipo-icono {
+  border-color: #efd7c5;
+  background: #fff4eb;
+  color: #986132;
+}
+.dialogo-estado-reactivar .dialogo-tipo-icono {
+  border-color: #c6e5d5;
+  background: #eff9f2;
+  color: #27765c;
+}
+.dialogo-estado-nombre {
+  display: grid;
+  gap: 5px;
+  margin: 20px 0 22px;
+  padding: 13px 15px;
+  border-left: 3px solid #bfd1df;
+  border-radius: 0 6px 6px 0;
+  background: #f8fafb;
+  overflow-wrap: anywhere;
+}
+.dialogo-estado-nombre span {
+  color: #71889a;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+.dialogo-estado-nombre strong {
+  color: #2b4358;
+  font-size: 14px;
+}
 .pagina-ejecucion {
   width: min(100%, 920px);
   margin: 0 auto;
@@ -2378,8 +2460,8 @@
   .aplicacion {
     grid-template-columns: 200px minmax(0, 1fr);
   }
-  .cliente-enlace {
-    grid-template-columns: 40px minmax(130px, 1.5fr) minmax(90px, 1fr) 80px 18px;
+  .cliente-datos {
+    grid-template-columns: 40px minmax(130px, 1.5fr) minmax(90px, 1fr) 80px;
     gap: 11px;
   }
   .cliente-mercado {
@@ -2400,11 +2482,12 @@
   .cliente-fila {
     flex-wrap: wrap;
   }
-  .cliente-enlace {
+  .cliente-datos {
     flex-basis: 100%;
   }
-  .cliente-accion {
-    margin-left: auto;
+  .cliente-acciones {
+    padding-left: 0;
+    border-left: 0;
   }
 }
 
@@ -2456,9 +2539,6 @@
   .marca-compacta .marca-icono {
     width: 33px;
     height: 33px;
-  }
-  .barra-superior .marca-logotipo {
-    display: none;
   }
   .lateral-contenido {
     order: 3;
@@ -2602,8 +2682,8 @@
   .cliente-fila {
     padding: 13px 14px;
   }
-  .cliente-enlace {
-    grid-template-columns: 36px minmax(0, 1fr) 70px 16px;
+  .cliente-datos {
+    grid-template-columns: 36px minmax(0, 1fr) 70px;
     gap: 10px;
   }
   .cliente-avatar {

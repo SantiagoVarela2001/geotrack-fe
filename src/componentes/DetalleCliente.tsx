@@ -12,6 +12,7 @@ import type {
 import { obtenerMensajeError, tienePermiso, urlWebSegura } from '../utilidades'
 import { AccionesConsultas } from './AccionesConsultas'
 import { Aviso, EtiquetaEstado, Icono, Vacio } from './Comun'
+import { ConfirmarEstadoCliente } from './ConfirmarEstadoCliente'
 import { ConfirmarTipoConsulta } from './ConfirmarTipoConsulta'
 import { FilaConsulta } from './FilaConsulta'
 import { GeneracionConsultas } from './GeneracionConsultas'
@@ -60,6 +61,7 @@ export function DetalleCliente({
   const [errorEstadoCliente, cambiarErrorEstadoCliente] = useState('')
   const [mensajeEstadoCliente, cambiarMensajeEstadoCliente] = useState('')
   const [cambiandoEstadoCliente, definirCambiandoEstadoCliente] = useState(false)
+  const [confirmandoEstadoCliente, cambiarConfirmandoEstadoCliente] = useState(false)
   const [nuevoTema, cambiarNuevoTema] = useState('')
   const [creandoTema, cambiarCreandoTema] = useState(false)
   const [renombrando, cambiarRenombrando] = useState(false)
@@ -361,6 +363,7 @@ export function DetalleCliente({
     if (
       !cliente ||
       !puedeCambiarEstadoCliente ||
+      !confirmandoEstadoCliente ||
       cambiandoEstadoCliente ||
       guardando ||
       creandoTema ||
@@ -370,12 +373,6 @@ export function DetalleCliente({
       return
     }
     const estado = cliente.estado === 'ACTIVO' ? 'ARCHIVADO' : 'ACTIVO'
-    if (
-      estado === 'ARCHIVADO' &&
-      !window.confirm(`¿Archivar a ${cliente.nombre}? Sus datos seguirán disponibles para lectura.`)
-    ) {
-      return
-    }
     cambiarErrorEstadoCliente('')
     cambiarMensajeEstadoCliente('')
     definirCambiandoEstadoCliente(true)
@@ -397,6 +394,7 @@ export function DetalleCliente({
       cambiarErrorEstadoCliente(obtenerMensajeError(causa))
     } finally {
       definirCambiandoEstadoCliente(false)
+      cambiarConfirmandoEstadoCliente(false)
     }
   }
 
@@ -672,27 +670,38 @@ export function DetalleCliente({
             <div className="detalle-acciones">
               {puedeVerConsultas && cliente.estado === 'ACTIVO' && (
                 <button
-                  className="boton boton-secundario boton-chico"
+                  className="boton boton-secundario boton-chico detalle-accion detalle-accion-metricas"
                   type="button"
                   onClick={alVerMetricas}
                 >
-                  Ver métricas GEO <Icono nombre="flecha" tamano={16} />
+                  <Icono nombre="grafico" tamano={18} />
+                  <span>Ver métricas GEO</span>
                 </button>
               )}
               {puedeCambiarEstadoCliente && (
                 <button
-                  className="boton boton-secundario boton-chico"
+                  className={`boton boton-secundario boton-chico detalle-accion detalle-accion-${cliente.estado === 'ACTIVO' ? 'archivar' : 'reactivar'}`}
                   type="button"
                   disabled={
                     cambiandoEstadoCliente || guardando || creandoTema || cambiandoTipo || generando
                   }
-                  onClick={() => void cambiarEstadoDelCliente()}
+                  onClick={() => {
+                    cambiarErrorEstadoCliente('')
+                    cambiarMensajeEstadoCliente('')
+                    cambiarConfirmandoEstadoCliente(true)
+                  }}
                 >
-                  {cambiandoEstadoCliente
-                    ? 'Guardando…'
-                    : cliente.estado === 'ACTIVO'
-                      ? 'Archivar cliente'
-                      : 'Reactivar cliente'}
+                  <Icono
+                    nombre={cliente.estado === 'ACTIVO' ? 'archivar' : 'reactivar'}
+                    tamano={18}
+                  />
+                  <span>
+                    {cambiandoEstadoCliente
+                      ? 'Guardando…'
+                      : cliente.estado === 'ACTIVO'
+                        ? 'Archivar cliente'
+                        : 'Reactivar cliente'}
+                  </span>
                 </button>
               )}
             </div>
@@ -1234,6 +1243,14 @@ export function DetalleCliente({
               enviando={cambiandoTipo}
               alCancelar={() => definirConsultaParaCambiarTipo(null)}
               alConfirmar={confirmarCambioTipo}
+            />
+          )}
+          {confirmandoEstadoCliente && (
+            <ConfirmarEstadoCliente
+              cliente={cliente}
+              enviando={cambiandoEstadoCliente}
+              alCancelar={() => cambiarConfirmandoEstadoCliente(false)}
+              alConfirmar={() => void cambiarEstadoDelCliente()}
             />
           )}
         </>

@@ -3,6 +3,7 @@ import { api, configurarExpiracionSesion } from './api/clienteApi'
 import type { DatosCliente, DatosConsulta, DatosCuenta } from './api/tipos'
 import { Administracion } from './componentes/Administracion'
 import { Aviso, Icono, Marca, Vacio } from './componentes/Comun'
+import { ConfirmarEstadoCliente } from './componentes/ConfirmarEstadoCliente'
 import { DetalleCliente } from './componentes/DetalleCliente'
 import { DetalleEjecucionConsulta } from './componentes/DetalleEjecucionConsulta'
 import { FormularioCliente } from './componentes/FormularioCliente'
@@ -60,6 +61,7 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
   const [mostrarFormulario, cambiarMostrarFormulario] = useState(false)
   const [revision, cambiarRevision] = useState(0)
   const [cambiandoEstadoUuid, cambiarCambiandoEstadoUuid] = useState<string | null>(null)
+  const [clientePorConfirmar, cambiarClientePorConfirmar] = useState<DatosCliente | null>(null)
   const [errorEstado, cambiarErrorEstado] = useState('')
   const [mensajeEstado, cambiarMensajeEstado] = useState('')
   const puedeVer = tienePermiso(cuenta.permisos, 'CLIENTES_VER')
@@ -68,6 +70,7 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
   const puedeCambiarEstado =
     cuenta.tipoCuenta === 'ORGANIZACION' &&
     tienePermiso(cuenta.permisos, 'CLIENTES_CAMBIAR_ESTADO')
+  const puedeVerMetricas = tienePermiso(cuenta.permisos, 'CONSULTAS_VER')
 
   useEffect(() => {
     if (!puedeVer) return
@@ -104,16 +107,11 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
     cambiarRevision((actual) => actual + 1)
   }
 
-  /** Archivar bloquea nuevas operaciones sobre el cliente; pedimos confirmación antes del PATCH. */
-  async function cambiarEstadoCliente(cliente: DatosCliente) {
-    if (!puedeCambiarEstado || cambiandoEstadoUuid) return
+  /** Aplica el estado confirmado y reemplaza la fila con la respuesta de la API. */
+  async function cambiarEstadoCliente() {
+    const cliente = clientePorConfirmar
+    if (!cliente || !puedeCambiarEstado || cambiandoEstadoUuid) return
     const estado = cliente.estado === 'ACTIVO' ? 'ARCHIVADO' : 'ACTIVO'
-    if (
-      estado === 'ARCHIVADO' &&
-      !window.confirm(`¿Archivar a ${cliente.nombre}? Sus datos seguirán disponibles para lectura.`)
-    ) {
-      return
-    }
     cambiarErrorEstado('')
     cambiarMensajeEstado('')
     cambiarCambiandoEstadoUuid(cliente.uuid)
@@ -133,6 +131,7 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
       )
     } finally {
       cambiarCambiandoEstadoUuid(null)
+      cambiarClientePorConfirmar(null)
     }
   }
 
@@ -237,13 +236,7 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
             <div className="clientes-tabla" role="list">
               {filtrados.map((cliente) => (
                 <div className="cliente-fila" role="listitem" key={cliente.uuid}>
-                  <button
-                    className="cliente-enlace"
-                    type="button"
-                    disabled={cambiandoEstadoUuid !== null}
-                    onClick={() => navegar(`/clientes/${cliente.uuid}`)}
-                    aria-label={`Ver cliente ${cliente.nombre}`}
-                  >
+                  <div className="cliente-datos">
                     <span className="cliente-avatar">
                       {cliente.nombreMarca.trim().charAt(0).toLocaleUpperCase('es')}
                     </span>
@@ -258,28 +251,75 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
                     <span className={`etiqueta etiqueta-${cliente.estado.toLowerCase()}`}>
                       {cliente.estado === 'ACTIVO' ? 'Activo' : 'Archivado'}
                     </span>
-                    <Icono nombre="flecha" tamano={18} />
-                  </button>
-                  {puedeCambiarEstado && (
+                  </div>
+                  <div className="cliente-acciones" role="group" aria-label={`Opciones para ${cliente.nombre}`}>
                     <button
-                      className="boton boton-secundario boton-chico cliente-accion"
+                      className="cliente-accion cliente-accion-ver"
                       type="button"
                       disabled={cambiandoEstadoUuid !== null}
-                      onClick={() => void cambiarEstadoCliente(cliente)}
-                      aria-label={`${cliente.estado === 'ACTIVO' ? 'Archivar' : 'Reactivar'} a ${cliente.nombre}`}
+                      onClick={() => navegar(`/clientes/${cliente.uuid}`)}
+                      title="Ver cliente"
+                      aria-label={`Ver cliente ${cliente.nombre}`}
                     >
-                      {cambiandoEstadoUuid === cliente.uuid
-                        ? 'Guardando…'
-                        : cliente.estado === 'ACTIVO'
-                          ? 'Archivar'
-                          : 'Reactivar'}
+                      <Icono nombre="ver" tamano={19} />
                     </button>
-                  )}
+                    {puedeCambiarEstado && (
+                      <button
+                        className={`cliente-accion cliente-accion-${cliente.estado === 'ACTIVO' ? 'archivar' : 'reactivar'}`}
+                        type="button"
+                        disabled={cambiandoEstadoUuid !== null}
+                        onClick={() => {
+                          cambiarErrorEstado('')
+                          cambiarMensajeEstado('')
+                          cambiarClientePorConfirmar(cliente)
+                        }}
+                        title={cliente.estado === 'ACTIVO' ? 'Archivar cliente' : 'Reactivar cliente'}
+                        aria-label={`${cliente.estado === 'ACTIVO' ? 'Archivar' : 'Reactivar'} a ${cliente.nombre}`}
+                      >
+                        <Icono
+                          nombre={cliente.estado === 'ACTIVO' ? 'archivar' : 'reactivar'}
+                          tamano={19}
+                        />
+                      </button>
+                    )}
+                    {puedeVerMetricas && (
+                      <span
+                        className="cliente-accion-contenedor"
+                        title={
+                          cliente.estado === 'ARCHIVADO'
+                            ? 'Estadísticas GEO no disponibles para clientes archivados'
+                            : 'Ver estadísticas GEO'
+                        }
+                      >
+                        <button
+                          className="cliente-accion cliente-accion-metricas"
+                          type="button"
+                          disabled={cambiandoEstadoUuid !== null || cliente.estado === 'ARCHIVADO'}
+                          onClick={() => navegar(`/clientes/${cliente.uuid}/metricas`)}
+                          aria-label={
+                            cliente.estado === 'ARCHIVADO'
+                              ? `Estadísticas GEO no disponibles: ${cliente.nombre} está archivado`
+                              : `Ver estadísticas GEO de ${cliente.nombre}`
+                          }
+                        >
+                          <Icono nombre="grafico" tamano={19} />
+                        </button>
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </>
+      )}
+      {clientePorConfirmar && (
+        <ConfirmarEstadoCliente
+          cliente={clientePorConfirmar}
+          enviando={cambiandoEstadoUuid !== null}
+          alCancelar={() => cambiarClientePorConfirmar(null)}
+          alConfirmar={() => void cambiarEstadoCliente()}
+        />
       )}
     </div>
   )
@@ -446,7 +486,10 @@ function App() {
       <div className="area-principal">
         <header className="barra-superior">
           <span className="barra-ruta">
-            <Marca compacta sobreClaro /> <b>/</b> <span>{nombreVista}</span>
+            <span className="marca-logotipo">
+              <img src="/logo-completo.png" alt="Gelaia" />
+            </span>
+            <b>/</b> <span>{nombreVista}</span>
           </span>
           <div>
             <span className="indicador-conexion" />{' '}
