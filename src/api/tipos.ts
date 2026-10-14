@@ -6,6 +6,8 @@ export type Permiso =
   | 'CLIENTES_CREAR'
   | 'CLIENTES_VER'
   | 'CLIENTES_CAMBIAR_ESTADO'
+  | 'COMPETIDORES_CREAR'
+  | 'COMPETIDORES_ELIMINAR'
   | 'TEMAS_CREAR'
   | 'TEMAS_VER'
   | 'TEMAS_EDITAR'
@@ -36,6 +38,11 @@ export interface Competidor {
   sitioWeb: string | null
 }
 
+export interface SolicitudCompetidor {
+  nombre: string
+  sitioWeb?: string
+}
+
 export interface DatosCliente {
   uuid: string
   organizacionUuid: string
@@ -58,7 +65,7 @@ export interface SolicitudCrearCliente {
   rubro: string
   pais: string
   idioma: string
-  competidores: Array<{ nombre: string; sitioWeb?: string }>
+  competidores: SolicitudCompetidor[]
 }
 
 export interface DatosTema {

@@ -201,6 +201,7 @@ export function FormularioCliente({
               Nombre
               <input
                 required
+                maxLength={200}
                 value={competidor.nombre}
                 onChange={(evento) =>
                   cambiarDatos((actual) => ({
@@ -218,6 +219,7 @@ export function FormularioCliente({
               <input
                 type="url"
                 pattern="https?://.+"
+                maxLength={2048}
                 value={competidor.sitioWeb ?? ''}
                 onChange={(evento) =>
                   cambiarDatos((actual) => ({

@@ -13,6 +13,7 @@ import { obtenerMensajeError, tienePermiso, urlWebSegura } from '../utilidades'
 import { AccionesConsultas } from './AccionesConsultas'
 import { Aviso, EtiquetaEstado, Icono, Vacio } from './Comun'
 import { ConfirmarEstadoCliente } from './ConfirmarEstadoCliente'
+import { GestionCompetidores } from './GestionCompetidores'
 import { ConfirmarTipoConsulta } from './ConfirmarTipoConsulta'
 import { FilaConsulta } from './FilaConsulta'
 import { GeneracionConsultas } from './GeneracionConsultas'
@@ -95,6 +96,8 @@ export function DetalleCliente({
     cuenta.tipoCuenta === 'ORGANIZACION' &&
     tienePermiso(cuenta.permisos, 'CLIENTES_CAMBIAR_ESTADO')
   const activo = cliente?.estado === 'ACTIVO' && cuenta.tipoCuenta === 'ORGANIZACION'
+  const puedeCrearCompetidor = activo && tienePermiso(cuenta.permisos, 'COMPETIDORES_CREAR')
+  const puedeEliminarCompetidor = activo && tienePermiso(cuenta.permisos, 'COMPETIDORES_ELIMINAR')
   const puedeCrearTema = activo && tienePermiso(cuenta.permisos, 'TEMAS_CREAR')
   const puedeEditarTema = activo && tienePermiso(cuenta.permisos, 'TEMAS_EDITAR')
   const puedeCrearConsulta = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_CREAR')
@@ -110,6 +113,7 @@ export function DetalleCliente({
     cliente?.estado === 'ACTIVO' && tienePermiso(cuenta.permisos, 'CONSULTAS_CAMBIAR_TIPO')
   const puedeEjecutar =
     cliente?.estado === 'ACTIVO' && tienePermiso(cuenta.permisos, 'CONSULTAS_EJECUTAR')
+  const clienteCargadoUuid = cliente?.uuid
   const temaActual = temas.find((tema) => tema.uuid === temaUuid)
   const sitioWebCliente = urlWebSegura(cliente?.sitioWeb ?? null)
   const descripcionExpandible = (cliente?.descripcion?.length ?? 0) > 100
@@ -228,7 +232,7 @@ export function DetalleCliente({
   }, [clienteUuid, puedeVerConsultas, revisionInicial])
 
   useEffect(() => {
-    if (!cliente || !puedeVerTemas) return
+    if (!clienteCargadoUuid || !puedeVerTemas) return
     let vigente = true
     api.temas
       .listar(clienteUuid)
@@ -252,7 +256,7 @@ export function DetalleCliente({
     return () => {
       vigente = false
     }
-  }, [cliente, clienteUuid, puedeVerTemas, revisionTemas, vistaGeneralInicial])
+  }, [clienteCargadoUuid, clienteUuid, puedeVerTemas, revisionTemas, vistaGeneralInicial])
 
   useEffect(() => {
     if (!temaUuid || !puedeVerConsultas || vistaAgrupada) return
@@ -275,7 +279,7 @@ export function DetalleCliente({
 
   /** Carga todos los temas y sus consultas solo mientras la vista general está abierta. */
   useEffect(() => {
-    if (!cliente || !vistaAgrupada || !puedeVerTemas || !puedeVerConsultas) return
+    if (!clienteCargadoUuid || !vistaAgrupada || !puedeVerTemas || !puedeVerConsultas) return
     let vigente = true
     api.consultas
       .listarPorTema(clienteUuid)
@@ -288,7 +292,7 @@ export function DetalleCliente({
     return () => {
       vigente = false
     }
-  }, [cliente, clienteUuid, vistaAgrupada, puedeVerTemas, puedeVerConsultas, revisionAgrupados])
+  }, [clienteCargadoUuid, clienteUuid, vistaAgrupada, puedeVerTemas, puedeVerConsultas, revisionAgrupados])
 
   /** Consulta un solo proceso a la vez y detiene el intervalo al terminar o salir de la página. */
   useEffect(() => {
@@ -752,7 +756,7 @@ export function DetalleCliente({
                 </strong>
               </div>
             </div>
-            {(descripcionExpandible || cliente.competidores.length > 0) ? (
+            {(descripcionExpandible || cliente.competidores.length > 0 || puedeCrearCompetidor) ? (
               <details className="detalle-extras">
                 <summary>
                   <span className="detalle-descripcion-resumen">
@@ -763,33 +767,27 @@ export function DetalleCliente({
                   </span>
                   <span className="detalle-extras-indicador">
                     <span className="detalle-extras-cerrado">
-                      {cliente.competidores.length > 0 ? 'Ver competidores' : 'Leer descripción'}
+                      {cliente.competidores.length > 0
+                        ? puedeCrearCompetidor || puedeEliminarCompetidor
+                          ? 'Gestionar competidores'
+                          : 'Ver competidores'
+                        : puedeCrearCompetidor
+                          ? 'Agregar competidor'
+                          : 'Leer descripción'}
                     </span>
                     <span className="detalle-extras-abierto">Mostrar menos</span>
                     <Icono nombre="flecha" tamano={16} />
                   </span>
                 </summary>
-                {cliente.competidores.length > 0 && (
+                {(cliente.competidores.length > 0 || puedeCrearCompetidor) && (
                   <div className="detalle-extras-contenido">
-                    <div className="competidores-seccion">
-                      <span className="sobrelinea">ENTORNO COMPETITIVO</span>
-                      <div className="competidores-lista">
-                        {cliente.competidores.map((competidor) => {
-                          const sitioSeguro = urlWebSegura(competidor.sitioWeb)
-                          return (
-                            <span key={competidor.uuid} className="competidor-chip">
-                              {sitioSeguro ? (
-                                <a href={sitioSeguro} target="_blank" rel="noopener noreferrer">
-                                  {competidor.nombre} ↗
-                                </a>
-                              ) : (
-                                competidor.nombre
-                              )}
-                            </span>
-                          )
-                        })}
-                      </div>
-                    </div>
+                    <GestionCompetidores
+                      key={`${cliente.uuid}:${cliente.estado}`}
+                      cliente={cliente}
+                      puedeCrear={puedeCrearCompetidor}
+                      puedeEliminar={puedeEliminarCompetidor}
+                      alActualizar={cambiarCliente}
+                    />
                   </div>
                 )}
               </details>

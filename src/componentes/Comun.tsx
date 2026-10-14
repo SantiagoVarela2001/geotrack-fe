@@ -19,6 +19,7 @@ type NombreIcono =
   | 'ver'
   | 'archivar'
   | 'reactivar'
+  | 'eliminar'
   | 'grafico'
 
 export function Icono({
@@ -100,6 +101,11 @@ export function Icono({
     reactivar: (
       <>
         <path d="M3 4h18v4H3zM5 8v12h14V8M12 16v-5m-3 3 3-3 3 3" />
+      </>
+    ),
+    eliminar: (
+      <>
+        <path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6" />
       </>
     ),
     grafico: (

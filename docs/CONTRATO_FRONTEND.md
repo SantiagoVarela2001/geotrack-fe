@@ -1,12 +1,12 @@
 # Contrato para el frontend
 
-Estado documentado al 14 de octubre de 2026. Este documento describe la API implementada y el contrato acordado para el cambio de estado de clientes. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
+Estado documentado al 14 de octubre de 2026. Este documento describe la API implementada y los contratos acordados para los cambios de estado y la gestión de competidores. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
 
 ## Qué puede construir el frontend ahora
 
 - Inicio y cierre de sesión, renovación del acceso y consulta de la cuenta actual.
 - Para `SYSADMIN`: lectura de planes, alta y listado de organizaciones, y alta de usuarios. Todavía no hay listado de usuarios.
-- Para usuarios de organización: alta, lectura, archivo y reactivación de clientes monitoreados; lectura de competidores; alta, lectura y cambio de nombre de temas; alta, lectura, aprobación y baja lógica de consultas.
+- Para usuarios de organización: alta, lectura, archivo y reactivación de clientes monitoreados; alta, lectura y baja lógica de competidores; alta, lectura y cambio de nombre de temas; alta, lectura, aprobación y baja lógica de consultas.
 - Para usuarios de organización con CONSULTAS_CREAR: generación asistida de quince borradores por cliente y consulta de su proceso.
 - Para usuarios con `CONSULTAS_VER`: lectura de ejecuciones manuales y métricas GEO agregadas por cliente y período.
 - Para `SYSADMIN`: lectura global de clientes, temas y consultas. Sus permisos actuales no habilitan escribir esos recursos.
@@ -70,6 +70,8 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 | `GET /api/clientes-monitoreados` | — | `200 DatosCliente[]` | `CLIENTES_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}` | — | `200 DatosCliente` | `CLIENTES_VER` |
 | `PATCH /api/clientes-monitoreados/{clienteUuid}/estado` | `{"estado":"ARCHIVADO"}` o `{"estado":"ACTIVO"}` | `200 DatosCliente` actualizado | `CLIENTES_CAMBIAR_ESTADO` |
+| `POST /api/clientes-monitoreados/{clienteUuid}/competidores` | `SolicitudCompetidor` | `201 DatosCliente` actualizado | `COMPETIDORES_CREAR` |
+| `DELETE /api/clientes-monitoreados/{clienteUuid}/competidores/{competidorUuid}` | — | `200 DatosCliente` actualizado | `COMPETIDORES_ELIMINAR` |
 | `POST /api/clientes-monitoreados/{clienteUuid}/temas` | `SolicitudTema` | `201 DatosTema` | `TEMAS_CREAR` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/temas` | — | `200 DatosTema[]` | `TEMAS_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/temas/{temaUuid}` | — | `200 DatosTema` | `TEMAS_VER` |
@@ -164,7 +166,7 @@ El correo debe tener formato de email y es único en toda la aplicación; uno re
 }
 ```
 
-`nombre`, `nombreMarca`, `sitioWeb`, `rubro`, `pais` e `idioma` son obligatorios. El sitio debe ser una URL completa HTTP o HTTPS. `pais` usa dos letras mayúsculas; `idioma` admite códigos como `es-AR`. El sitio de un competidor es opcional.
+`nombre`, `nombreMarca`, `sitioWeb`, `rubro`, `pais` e `idioma` son obligatorios. El sitio debe ser una URL completa HTTP o HTTPS. `pais` usa dos letras mayúsculas; `idioma` admite códigos como `es-AR`. El sitio de un competidor es opcional. En el alta inicial tampoco se admiten nombres de competidores duplicados, ignorando mayúsculas y espacios exteriores.
 
 `POST` devuelve `201` y `GET` devuelve el mismo formato de `DatosCliente`:
 
@@ -202,7 +204,17 @@ El correo debe tener formato de email y es único en toda la aplicación; uno re
 
 El cambio exige `CLIENTES_CAMBIAR_ESTADO` y pertenencia a la organización del cliente. Devuelve el `DatosCliente` actualizado. Repetir el estado actual devuelve `200` sin registrar otra edición. En las rutas de lectura, un usuario de organización solo ve clientes propios y `SYSADMIN` puede leer todos; un UUID ajeno o inexistente devuelve `404`.
 
-La ruta de cambio de estado aún no está en el backend local revisado el 14 de octubre de 2026. Integrarla y desplegarla antes de publicar este frontend.
+Para agregar un competidor después de crear el cliente, enviar `POST /api/clientes-monitoreados/{clienteUuid}/competidores` con `SolicitudCompetidor`:
+
+```json
+{"nombre":"Taller Este","sitioWeb":"https://este.example"}
+```
+
+`nombre` es obligatorio y admite hasta 200 caracteres. `sitioWeb` es opcional; si se informa, debe ser una URL HTTP o HTTPS de hasta 2048 caracteres. El `POST` devuelve `201` con el `DatosCliente` completo y la lista activa actualizada. Para dar de baja un competidor, enviar `DELETE /api/clientes-monitoreados/{clienteUuid}/competidores/{competidorUuid}` sin body; devuelve `200` con el `DatosCliente` actualizado. La baja es lógica y libera el nombre para reutilizarlo. El `GET` del cliente ya incluye los competidores activos.
+
+Ambas escrituras exigen una cuenta de la organización dueña, cliente `ACTIVO` y el permiso correspondiente: `COMPETIDORES_CREAR` o `COMPETIDORES_ELIMINAR`. `SYSADMIN` conserva lectura global. Un cliente o competidor ajeno, inexistente o dado de baja devuelve `404`; un cliente archivado, `409`; datos inválidos, `400`. No puede haber dos competidores activos con el mismo nombre en un cliente, ignorando mayúsculas y espacios exteriores: devuelve `409` con `title: "Competidor duplicado"`.
+
+Las normalizaciones de IA en curso terminan con la lista de competidores que recibieron al empezar. Las altas y bajas posteriores se aplican a próximas normalizaciones; los resultados históricos conservan menciones de competidores dados de baja.
 
 ## Temas
 
@@ -481,7 +493,7 @@ No todas las rutas usan el mismo cuerpo de error: algunas respuestas de autentic
 ## Funciones todavía sin endpoint
 
 - Listar usuarios; editar o eliminar usuarios; cambiar contraseñas.
-- Editar los datos de clientes o competidores.
+- Editar los datos de clientes o de competidores existentes.
 - Dar de baja temas mediante HTTP.
 - Programar monitoreos, consultar reportes o recomendaciones; ejecutar contra proveedores adicionales.
 

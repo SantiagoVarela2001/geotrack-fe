@@ -11,6 +11,7 @@ import type {
   DatosTemaConConsultas,
   RespuestaAcceso,
   RespuestaUsuario,
+  SolicitudCompetidor,
   SolicitudCrearCliente,
   SolicitudCrearConsulta,
   SolicitudCrearOrganizacion,
@@ -41,12 +42,16 @@ export function limpiarSesion(): void {
 /** Usa detail cuando existe, sin depender del formato de error de cada endpoint. */
 async function crearError(respuesta: Response): Promise<ErrorApi> {
   let detalle: string | undefined
+  let competidorDuplicado = false
   if (respuesta.headers.get('content-type')?.includes('json')) {
     try {
       const cuerpo: unknown = await respuesta.json()
-      if (cuerpo && typeof cuerpo === 'object' && 'detail' in cuerpo) {
-        const valor = cuerpo.detail
-        if (typeof valor === 'string' && valor.trim()) detalle = valor
+      if (cuerpo && typeof cuerpo === 'object') {
+        if ('detail' in cuerpo) {
+          const valor = cuerpo.detail
+          if (typeof valor === 'string' && valor.trim()) detalle = valor
+        }
+        competidorDuplicado = 'title' in cuerpo && cuerpo.title === 'Competidor duplicado'
       }
     } catch {
       // El estado HTTP sigue siendo válido aunque el body sea ilegible.
@@ -63,7 +68,10 @@ async function crearError(respuesta: Response): Promise<ErrorApi> {
   }
   return new ErrorApi(
     respuesta.status,
-    detalle ?? mensajes[respuesta.status] ?? 'No se pudo completar la solicitud.',
+    detalle ??
+      (competidorDuplicado ? 'Ya existe un competidor activo con ese nombre.' : undefined) ??
+      mensajes[respuesta.status] ??
+      'No se pudo completar la solicitud.',
   )
 }
 
@@ -183,6 +191,18 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(datos),
       }),
+  },
+  competidores: {
+    crear: (clienteUuid: string, datos: SolicitudCompetidor) =>
+      solicitar<DatosCliente>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/competidores`,
+        { method: 'POST', body: JSON.stringify(datos) },
+      ),
+    darDeBaja: (clienteUuid: string, competidorUuid: string) =>
+      solicitar<DatosCliente>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/competidores/${encodeURIComponent(competidorUuid)}`,
+        { method: 'DELETE' },
+      ),
   },
   metricas: {
     obtener: (clienteUuid: string, desde: string, hasta: string) =>
