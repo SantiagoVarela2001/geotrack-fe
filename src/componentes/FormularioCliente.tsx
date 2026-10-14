@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { api } from '../api/clienteApi'
 import type { DatosCliente, SolicitudCrearCliente } from '../api/tipos'
-import { obtenerMensajeError } from '../utilidades'
+import { obtenerMensajeError, urlWebSegura } from '../utilidades'
 import { Aviso, Icono } from './Comun'
+import { ConfirmarCrearCliente } from './ConfirmarCrearCliente'
 
 /** Opciones iniciales de la interfaz; la API sigue validando los códigos recibidos. */
 const paises = [
@@ -32,6 +33,10 @@ const datosIniciales: SolicitudCrearCliente = {
   competidores: [],
 }
 
+function esUrlHttpCompleta(valor: string): boolean {
+  return /^https?:\/\//i.test(valor) && urlWebSegura(valor) !== null
+}
+
 export function FormularioCliente({
   alCrear,
   alCancelar,
@@ -40,36 +45,76 @@ export function FormularioCliente({
   alCancelar: () => void
 }) {
   const [datos, cambiarDatos] = useState<SolicitudCrearCliente>(datosIniciales)
+  const [datosPorConfirmar, cambiarDatosPorConfirmar] = useState<SolicitudCrearCliente | null>(null)
   const [cargando, cambiarCargando] = useState(false)
   const [error, cambiarError] = useState('')
+  const [errorCreacion, cambiarErrorCreacion] = useState('')
 
   function cambiarCampo(campo: keyof Omit<SolicitudCrearCliente, 'competidores'>, valor: string) {
     cambiarDatos((actual) => ({ ...actual, [campo]: valor }))
   }
 
-  /** Envía solo los campos del contrato; la organización se determina con el JWT. */
-  async function enviar(evento: FormEvent<HTMLFormElement>) {
+  /** Prepara una copia exacta de lo que se enviará para que el usuario pueda revisarla. */
+  function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     cambiarError('')
+    const revisados: SolicitudCrearCliente = {
+      ...datos,
+      nombre: datos.nombre.trim(),
+      nombreMarca: datos.nombreMarca.trim(),
+      sitioWeb: datos.sitioWeb.trim(),
+      descripcion: datos.descripcion?.trim() || undefined,
+      rubro: datos.rubro.trim(),
+      pais: datos.pais.trim().toUpperCase(),
+      idioma: datos.idioma.trim(),
+      competidores: datos.competidores.map((competidor) => ({
+        nombre: competidor.nombre.trim(),
+        sitioWeb: competidor.sitioWeb?.trim() || undefined,
+      })),
+    }
+
+    if (
+      !revisados.nombre || !revisados.nombreMarca || !revisados.sitioWeb ||
+      !revisados.rubro || !revisados.pais || !revisados.idioma
+    ) {
+      cambiarError('Completá todos los campos obligatorios antes de revisar el cliente.')
+      return
+    }
+    if (!esUrlHttpCompleta(revisados.sitioWeb)) {
+      cambiarError('El sitio web del cliente debe ser una URL completa que comience con http:// o https://.')
+      return
+    }
+    const nombresCompetidores = new Set<string>()
+    for (const [indice, competidor] of revisados.competidores.entries()) {
+      if (!competidor.nombre) {
+        cambiarError(`Completá el nombre del competidor ${indice + 1} o quitá esa fila.`)
+        return
+      }
+      if (competidor.sitioWeb && !esUrlHttpCompleta(competidor.sitioWeb)) {
+        cambiarError(`El sitio web del competidor ${indice + 1} debe comenzar con http:// o https://.`)
+        return
+      }
+      const nombreComparable = competidor.nombre.toLocaleLowerCase()
+      if (nombresCompetidores.has(nombreComparable)) {
+        cambiarError(`El competidor «${competidor.nombre}» está repetido.`)
+        return
+      }
+      nombresCompetidores.add(nombreComparable)
+    }
+    cambiarErrorCreacion('')
+    cambiarDatosPorConfirmar(revisados)
+  }
+
+  /** El alta se realiza únicamente con los datos que se mostraron en la confirmación. */
+  async function confirmarCreacion() {
+    if (!datosPorConfirmar || cargando) return
+    cambiarErrorCreacion('')
     cambiarCargando(true)
     try {
-      const cliente = await api.clientes.crear({
-        ...datos,
-        nombre: datos.nombre.trim(),
-        nombreMarca: datos.nombreMarca.trim(),
-        sitioWeb: datos.sitioWeb.trim(),
-        descripcion: datos.descripcion?.trim() || undefined,
-        rubro: datos.rubro.trim(),
-        pais: datos.pais.trim().toUpperCase(),
-        idioma: datos.idioma.trim(),
-        competidores: datos.competidores.map((competidor) => ({
-          nombre: competidor.nombre.trim(),
-          sitioWeb: competidor.sitioWeb?.trim() || undefined,
-        })),
-      })
+      const cliente = await api.clientes.crear(datosPorConfirmar)
       alCrear(cliente)
     } catch (causa) {
-      cambiarError(obtenerMensajeError(causa))
+      cambiarErrorCreacion(obtenerMensajeError(causa))
     } finally {
       cambiarCargando(false)
     }
@@ -94,7 +139,7 @@ export function FormularioCliente({
           <Icono nombre="cerrar" />
         </button>
       </div>
-      <form onSubmit={enviar} className="formulario">
+      <form onSubmit={enviar} className="formulario" noValidate>
         <div className="grilla-formulario">
           <label>
             Nombre del cliente <span className="requerido">*</span>
@@ -253,10 +298,24 @@ export function FormularioCliente({
             Cancelar
           </button>
           <button className="boton boton-primario" disabled={cargando} type="submit">
-            {cargando ? 'Guardando…' : 'Crear cliente'} <Icono nombre="flecha" tamano={17} />
+            Revisar cliente <Icono nombre="flecha" tamano={17} />
           </button>
         </div>
       </form>
+      {datosPorConfirmar && (
+        <ConfirmarCrearCliente
+          datos={datosPorConfirmar}
+          pais={paises.find((pais) => pais.codigo === datosPorConfirmar.pais)?.nombre ?? datosPorConfirmar.pais}
+          idioma={idiomas.find((idioma) => idioma.codigo === datosPorConfirmar.idioma)?.nombre ?? datosPorConfirmar.idioma}
+          enviando={cargando}
+          error={errorCreacion}
+          alCancelar={() => {
+            cambiarDatosPorConfirmar(null)
+            cambiarErrorCreacion('')
+          }}
+          alConfirmar={confirmarCreacion}
+        />
+      )}
     </div>
   )
 }
