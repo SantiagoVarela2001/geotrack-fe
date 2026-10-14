@@ -103,7 +103,7 @@ El workflow `.github/workflows/desplegar-vps.yml` se ejecuta solo con **Actions 
 1. En Windows, generar otra clave, exclusiva para este workflow: `ssh-keygen -t ed25519 -f "$env:USERPROFILE\.ssh\geotrack_fe_actions" -C "geotrack-fe-actions"`. Dejar la frase de contraseña vacía.
 2. Agregar la línea completa de `geotrack_fe_actions.pub` al final de `/root/.ssh/authorized_keys` en el VPS, precedida por `restrict,command="/bin/bash /opt/geotrack-fe/scripts/desplegar-vps.sh" `. No reemplazar la clave usada por el backend. Mantener `/root/.ssh` con permisos `700` y `authorized_keys` con `600`.
 3. Obtener la **clave pública** del host con `cat /etc/ssh/ssh_host_ed25519_key.pub`. No copiar la clave privada del host.
-4. En GitHub → repositorio `geotrack-fe` → Settings → Secrets and variables → Actions, definir la variable `VPS_HOST` con la IP pública del VPS y los secretos `VPS_SSH_PRIVATE_KEY` (contenido completo de `geotrack_fe_actions`, sin `.pub`) y `VPS_SSH_HOST_PUBLIC_KEY` (la línea pública obtenida en el paso 3).
+4. En GitHub → repositorio `geotrack-fe` → Settings → Secrets and variables → Actions, definir tres secretos del repositorio: `VPS_HOST` con la IP pública del VPS, `VPS_SSH_PRIVATE_KEY` con el contenido completo de `geotrack_fe_actions` (sin `.pub`) y `VPS_SSH_HOST_PUBLIC_KEY` con la línea pública obtenida en el paso 3.
 5. Ejecutar el workflow en `main`. La salida debe mostrar `docker compose ps` y la revisión desplegada. Se puede repetir la comprobación de `https://app.gelaia.com` del paso 4.
 
 La clave de lectura del repositorio y la clave de GitHub Actions cumplen funciones distintas. La segunda solo puede invocar el script de este frontend mediante el comando forzado de SSH.

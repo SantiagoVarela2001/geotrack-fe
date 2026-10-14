@@ -14,7 +14,7 @@ jobs:
       group: geotrack-fe-produccion
       cancel-in-progress: false
     env:
-      VPS_HOST: ${{ vars.VPS_HOST }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
 
     steps:
       - name: Preparar acceso SSH
