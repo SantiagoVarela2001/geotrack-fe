@@ -173,6 +173,11 @@ export const api = {
     listar: () => solicitar<DatosCliente[]>('/api/clientes-monitoreados'),
     obtener: (uuid: string) =>
       solicitar<DatosCliente>(`/api/clientes-monitoreados/${encodeURIComponent(uuid)}`),
+    cambiarEstado: (uuid: string, estado: DatosCliente['estado']) =>
+      solicitar<DatosCliente>(`/api/clientes-monitoreados/${encodeURIComponent(uuid)}/estado`, {
+        method: 'PATCH',
+        body: JSON.stringify({ estado }),
+      }),
     crear: (datos: SolicitudCrearCliente) =>
       solicitar<DatosCliente>('/api/clientes-monitoreados', {
         method: 'POST',

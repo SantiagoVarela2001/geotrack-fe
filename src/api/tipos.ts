@@ -5,6 +5,7 @@ export type Permiso =
   | 'USUARIOS_CREAR'
   | 'CLIENTES_CREAR'
   | 'CLIENTES_VER'
+  | 'CLIENTES_CAMBIAR_ESTADO'
   | 'TEMAS_CREAR'
   | 'TEMAS_VER'
   | 'TEMAS_EDITAR'

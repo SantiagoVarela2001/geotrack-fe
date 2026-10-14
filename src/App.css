@@ -838,17 +838,27 @@
 .cliente-fila {
   width: 100%;
   min-height: 79px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e9edf1;
+  background: #fff;
+  transition: background 0.15s;
+}
+.cliente-enlace {
+  min-width: 0;
+  flex: 1;
   display: grid;
   grid-template-columns: 40px minmax(150px, 1.5fr) minmax(105px, 1fr) minmax(105px, 0.8fr) 85px 18px;
   align-items: center;
   gap: 16px;
-  padding: 14px 20px;
+  padding: 0;
   border: 0;
-  border-bottom: 1px solid #e9edf1;
-  background: #fff;
+  background: transparent;
   text-align: left;
   color: #788b9a;
-  transition: background 0.15s;
+  cursor: pointer;
 }
 .cliente-fila:last-child {
   border-bottom: 0;
@@ -856,9 +866,16 @@
 .cliente-fila:hover {
   background: #f6fafc;
 }
-.cliente-fila:hover > svg {
+.cliente-enlace:hover > svg {
   color: #1466aa;
   transform: translateX(2px);
+}
+.cliente-enlace:focus-visible {
+  outline: 2px solid #348ac7;
+  outline-offset: 5px;
+}
+.cliente-accion {
+  flex-shrink: 0;
 }
 .cliente-avatar {
   width: 39px;
@@ -969,9 +986,11 @@
 .detalle-aviso {
   margin-bottom: 12px;
 }
-.detalle-acceso-metricas {
+.detalle-acciones {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 12px;
 }
 .resumen-cliente {
@@ -2359,7 +2378,7 @@
   .aplicacion {
     grid-template-columns: 200px minmax(0, 1fr);
   }
-  .cliente-fila {
+  .cliente-enlace {
     grid-template-columns: 40px minmax(130px, 1.5fr) minmax(90px, 1fr) 80px 18px;
     gap: 11px;
   }
@@ -2374,6 +2393,18 @@
   }
   .dato-resumen:nth-child(-n + 2) {
     border-bottom: 1px solid var(--linea);
+  }
+}
+
+@media (max-width: 620px) {
+  .cliente-fila {
+    flex-wrap: wrap;
+  }
+  .cliente-enlace {
+    flex-basis: 100%;
+  }
+  .cliente-accion {
+    margin-left: auto;
   }
 }
 
@@ -2569,8 +2600,10 @@
     margin-top: 15px;
   }
   .cliente-fila {
-    grid-template-columns: 36px minmax(0, 1fr) 70px 16px;
     padding: 13px 14px;
+  }
+  .cliente-enlace {
+    grid-template-columns: 36px minmax(0, 1fr) 70px 16px;
     gap: 10px;
   }
   .cliente-avatar {

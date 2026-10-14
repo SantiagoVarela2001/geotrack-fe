@@ -1,12 +1,12 @@
 # Contrato para el frontend
 
-Estado documentado al 14 de octubre de 2026. Este documento describe la API **implementada hoy**. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
+Estado documentado al 14 de octubre de 2026. Este documento describe la API implementada y el contrato acordado para el cambio de estado de clientes. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
 
 ## Qué puede construir el frontend ahora
 
 - Inicio y cierre de sesión, renovación del acceso y consulta de la cuenta actual.
 - Para `SYSADMIN`: lectura de planes, alta y listado de organizaciones, y alta de usuarios. Todavía no hay listado de usuarios.
-- Para usuarios de organización: alta y lectura de clientes monitoreados y competidores; alta, lectura y cambio de nombre de temas; alta, lectura, aprobación y baja lógica de consultas.
+- Para usuarios de organización: alta, lectura, archivo y reactivación de clientes monitoreados; lectura de competidores; alta, lectura y cambio de nombre de temas; alta, lectura, aprobación y baja lógica de consultas.
 - Para usuarios de organización con CONSULTAS_CREAR: generación asistida de quince borradores por cliente y consulta de su proceso.
 - Para usuarios con `CONSULTAS_VER`: lectura de ejecuciones manuales y métricas GEO agregadas por cliente y período.
 - Para `SYSADMIN`: lectura global de clientes, temas y consultas. Sus permisos actuales no habilitan escribir esos recursos.
@@ -69,6 +69,7 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 | `POST /api/clientes-monitoreados` | `SolicitudCrearClienteMonitoreado` | `201 DatosCliente` | `CLIENTES_CREAR` |
 | `GET /api/clientes-monitoreados` | — | `200 DatosCliente[]` | `CLIENTES_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}` | — | `200 DatosCliente` | `CLIENTES_VER` |
+| `PATCH /api/clientes-monitoreados/{clienteUuid}/estado` | `{"estado":"ARCHIVADO"}` o `{"estado":"ACTIVO"}` | `200 DatosCliente` actualizado | `CLIENTES_CAMBIAR_ESTADO` |
 | `POST /api/clientes-monitoreados/{clienteUuid}/temas` | `SolicitudTema` | `201 DatosTema` | `TEMAS_CREAR` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/temas` | — | `200 DatosTema[]` | `TEMAS_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/temas/{temaUuid}` | — | `200 DatosTema` | `TEMAS_VER` |
@@ -189,7 +190,19 @@ El correo debe tener formato de email y es único en toda la aplicación; uno re
 }
 ```
 
-`estado` puede ser `ACTIVO` o `ARCHIVADO`. Los archivados siguen visibles en las rutas de lectura, pero todavía no existe endpoint para archivarlos o reactivarlos. Un usuario de organización solo ve clientes propios; `SYSADMIN` puede leer todos. Un UUID ajeno o inexistente devuelve `404`.
+`estado` puede ser `ACTIVO` o `ARCHIVADO`. Los archivados siguen visibles en las rutas de lectura. Para archivar o reactivar un cliente se envía `PATCH /api/clientes-monitoreados/{clienteUuid}/estado` con uno de estos cuerpos:
+
+```json
+{"estado":"ARCHIVADO"}
+```
+
+```json
+{"estado":"ACTIVO"}
+```
+
+El cambio exige `CLIENTES_CAMBIAR_ESTADO` y pertenencia a la organización del cliente. Devuelve el `DatosCliente` actualizado. Repetir el estado actual devuelve `200` sin registrar otra edición. En las rutas de lectura, un usuario de organización solo ve clientes propios y `SYSADMIN` puede leer todos; un UUID ajeno o inexistente devuelve `404`.
+
+La ruta de cambio de estado aún no está en el backend local revisado el 14 de octubre de 2026. Integrarla y desplegarla antes de publicar este frontend.
 
 ## Temas
 
@@ -468,7 +481,7 @@ No todas las rutas usan el mismo cuerpo de error: algunas respuestas de autentic
 ## Funciones todavía sin endpoint
 
 - Listar usuarios; editar o eliminar usuarios; cambiar contraseñas.
-- Editar clientes o competidores, archivar/reactivar clientes desde la API.
+- Editar los datos de clientes o competidores.
 - Dar de baja temas mediante HTTP.
 - Programar monitoreos, consultar reportes o recomendaciones; ejecutar contra proveedores adicionales.
 

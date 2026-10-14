@@ -59,9 +59,15 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
   const [busqueda, cambiarBusqueda] = useState('')
   const [mostrarFormulario, cambiarMostrarFormulario] = useState(false)
   const [revision, cambiarRevision] = useState(0)
+  const [cambiandoEstadoUuid, cambiarCambiandoEstadoUuid] = useState<string | null>(null)
+  const [errorEstado, cambiarErrorEstado] = useState('')
+  const [mensajeEstado, cambiarMensajeEstado] = useState('')
   const puedeVer = tienePermiso(cuenta.permisos, 'CLIENTES_VER')
   const puedeCrear =
     cuenta.tipoCuenta === 'ORGANIZACION' && tienePermiso(cuenta.permisos, 'CLIENTES_CREAR')
+  const puedeCambiarEstado =
+    cuenta.tipoCuenta === 'ORGANIZACION' &&
+    tienePermiso(cuenta.permisos, 'CLIENTES_CAMBIAR_ESTADO')
 
   useEffect(() => {
     if (!puedeVer) return
@@ -96,6 +102,38 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
     cambiarCargando(true)
     cambiarError('')
     cambiarRevision((actual) => actual + 1)
+  }
+
+  /** Archivar bloquea nuevas operaciones sobre el cliente; pedimos confirmación antes del PATCH. */
+  async function cambiarEstadoCliente(cliente: DatosCliente) {
+    if (!puedeCambiarEstado || cambiandoEstadoUuid) return
+    const estado = cliente.estado === 'ACTIVO' ? 'ARCHIVADO' : 'ACTIVO'
+    if (
+      estado === 'ARCHIVADO' &&
+      !window.confirm(`¿Archivar a ${cliente.nombre}? Sus datos seguirán disponibles para lectura.`)
+    ) {
+      return
+    }
+    cambiarErrorEstado('')
+    cambiarMensajeEstado('')
+    cambiarCambiandoEstadoUuid(cliente.uuid)
+    try {
+      const actualizado = await api.clientes.cambiarEstado(cliente.uuid, estado)
+      cambiarClientes((actuales) =>
+        actuales.map((actual) => (actual.uuid === cliente.uuid ? actualizado : actual)),
+      )
+      cambiarMensajeEstado(
+        actualizado.estado === 'ARCHIVADO'
+          ? `${cliente.nombre} quedó archivado.`
+          : `${cliente.nombre} volvió a estar activo.`,
+      )
+    } catch (causa) {
+      cambiarErrorEstado(
+        `No se pudo cambiar el estado de ${cliente.nombre}: ${obtenerMensajeError(causa)}`,
+      )
+    } finally {
+      cambiarCambiandoEstadoUuid(null)
+    }
   }
 
   return (
@@ -150,6 +188,16 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
               />
             </label>
           </div>
+          {errorEstado && (
+            <div className="detalle-aviso">
+              <Aviso>{errorEstado}</Aviso>
+            </div>
+          )}
+          {mensajeEstado && (
+            <div className="detalle-aviso">
+              <Aviso tipo="exito">{mensajeEstado}</Aviso>
+            </div>
+          )}
           {cargando ? (
             <div className="cargando-bloque">Cargando clientes…</div>
           ) : error ? (
@@ -188,29 +236,46 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
           ) : (
             <div className="clientes-tabla" role="list">
               {filtrados.map((cliente) => (
-                <button
-                  className="cliente-fila"
-                  type="button"
-                  role="listitem"
-                  key={cliente.uuid}
-                  onClick={() => navegar(`/clientes/${cliente.uuid}`)}
-                >
-                  <span className="cliente-avatar">
-                    {cliente.nombreMarca.trim().charAt(0).toLocaleUpperCase('es')}
-                  </span>
-                  <span className="cliente-identidad">
-                    <strong>{cliente.nombre}</strong>
-                    <small>{cliente.nombreMarca}</small>
-                  </span>
-                  <span className="cliente-rubro">{cliente.rubro}</span>
-                  <span className="cliente-mercado">
-                    {cliente.pais} · {cliente.idioma}
-                  </span>
-                  <span className={`etiqueta etiqueta-${cliente.estado.toLowerCase()}`}>
-                    {cliente.estado === 'ACTIVO' ? 'Activo' : 'Archivado'}
-                  </span>
-                  <Icono nombre="flecha" tamano={18} />
-                </button>
+                <div className="cliente-fila" role="listitem" key={cliente.uuid}>
+                  <button
+                    className="cliente-enlace"
+                    type="button"
+                    disabled={cambiandoEstadoUuid !== null}
+                    onClick={() => navegar(`/clientes/${cliente.uuid}`)}
+                    aria-label={`Ver cliente ${cliente.nombre}`}
+                  >
+                    <span className="cliente-avatar">
+                      {cliente.nombreMarca.trim().charAt(0).toLocaleUpperCase('es')}
+                    </span>
+                    <span className="cliente-identidad">
+                      <strong>{cliente.nombre}</strong>
+                      <small>{cliente.nombreMarca}</small>
+                    </span>
+                    <span className="cliente-rubro">{cliente.rubro}</span>
+                    <span className="cliente-mercado">
+                      {cliente.pais} · {cliente.idioma}
+                    </span>
+                    <span className={`etiqueta etiqueta-${cliente.estado.toLowerCase()}`}>
+                      {cliente.estado === 'ACTIVO' ? 'Activo' : 'Archivado'}
+                    </span>
+                    <Icono nombre="flecha" tamano={18} />
+                  </button>
+                  {puedeCambiarEstado && (
+                    <button
+                      className="boton boton-secundario boton-chico cliente-accion"
+                      type="button"
+                      disabled={cambiandoEstadoUuid !== null}
+                      onClick={() => void cambiarEstadoCliente(cliente)}
+                      aria-label={`${cliente.estado === 'ACTIVO' ? 'Archivar' : 'Reactivar'} a ${cliente.nombre}`}
+                    >
+                      {cambiandoEstadoUuid === cliente.uuid
+                        ? 'Guardando…'
+                        : cliente.estado === 'ACTIVO'
+                          ? 'Archivar'
+                          : 'Reactivar'}
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           )}

@@ -57,6 +57,9 @@ export function DetalleCliente({
   const [errorConsultas, cambiarErrorConsultas] = useState('')
   const [errorAccion, cambiarErrorAccion] = useState('')
   const [mensajeAccion, cambiarMensajeAccion] = useState('')
+  const [errorEstadoCliente, cambiarErrorEstadoCliente] = useState('')
+  const [mensajeEstadoCliente, cambiarMensajeEstadoCliente] = useState('')
+  const [cambiandoEstadoCliente, definirCambiandoEstadoCliente] = useState(false)
   const [nuevoTema, cambiarNuevoTema] = useState('')
   const [creandoTema, cambiarCreandoTema] = useState(false)
   const [renombrando, cambiarRenombrando] = useState(false)
@@ -79,6 +82,9 @@ export function DetalleCliente({
 
   const puedeVerTemas = tienePermiso(cuenta.permisos, 'TEMAS_VER')
   const puedeVerConsultas = tienePermiso(cuenta.permisos, 'CONSULTAS_VER')
+  const puedeCambiarEstadoCliente =
+    cuenta.tipoCuenta === 'ORGANIZACION' &&
+    tienePermiso(cuenta.permisos, 'CLIENTES_CAMBIAR_ESTADO')
   const activo = cliente?.estado === 'ACTIVO' && cuenta.tipoCuenta === 'ORGANIZACION'
   const puedeCrearTema = activo && tienePermiso(cuenta.permisos, 'TEMAS_CREAR')
   const puedeEditarTema = activo && tienePermiso(cuenta.permisos, 'TEMAS_EDITAR')
@@ -350,6 +356,50 @@ export function DetalleCliente({
     }
   }
 
+  /** Reemplaza el cliente con la respuesta de la API solo cuando confirma el cambio. */
+  async function cambiarEstadoDelCliente() {
+    if (
+      !cliente ||
+      !puedeCambiarEstadoCliente ||
+      cambiandoEstadoCliente ||
+      guardando ||
+      creandoTema ||
+      cambiandoTipo ||
+      generando
+    ) {
+      return
+    }
+    const estado = cliente.estado === 'ACTIVO' ? 'ARCHIVADO' : 'ACTIVO'
+    if (
+      estado === 'ARCHIVADO' &&
+      !window.confirm(`¿Archivar a ${cliente.nombre}? Sus datos seguirán disponibles para lectura.`)
+    ) {
+      return
+    }
+    cambiarErrorEstadoCliente('')
+    cambiarMensajeEstadoCliente('')
+    definirCambiandoEstadoCliente(true)
+    try {
+      const actualizado = await api.clientes.cambiarEstado(clienteUuid, estado)
+      cambiarCliente(actualizado)
+      if (actualizado.estado === 'ARCHIVADO') {
+        cambiarRenombrando(false)
+        cambiarMostrarConsultas(false)
+        cambiarSeleccionadas([])
+        cambiarConfirmarBaja(false)
+      }
+      cambiarMensajeEstadoCliente(
+        actualizado.estado === 'ARCHIVADO'
+          ? 'El cliente quedó archivado.'
+          : 'El cliente volvió a estar activo.',
+      )
+    } catch (causa) {
+      cambiarErrorEstadoCliente(obtenerMensajeError(causa))
+    } finally {
+      definirCambiandoEstadoCliente(false)
+    }
+  }
+
   async function crearTema(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     if (guardando || creandoTema) return
@@ -618,24 +668,55 @@ export function DetalleCliente({
               </div>
             </div>
           </div>
-          {cliente.estado === 'ARCHIVADO' && (
+          {(puedeCambiarEstadoCliente || (puedeVerConsultas && cliente.estado === 'ACTIVO')) && (
+            <div className="detalle-acciones">
+              {puedeVerConsultas && cliente.estado === 'ACTIVO' && (
+                <button
+                  className="boton boton-secundario boton-chico"
+                  type="button"
+                  onClick={alVerMetricas}
+                >
+                  Ver métricas GEO <Icono nombre="flecha" tamano={16} />
+                </button>
+              )}
+              {puedeCambiarEstadoCliente && (
+                <button
+                  className="boton boton-secundario boton-chico"
+                  type="button"
+                  disabled={
+                    cambiandoEstadoCliente || guardando || creandoTema || cambiandoTipo || generando
+                  }
+                  onClick={() => void cambiarEstadoDelCliente()}
+                >
+                  {cambiandoEstadoCliente
+                    ? 'Guardando…'
+                    : cliente.estado === 'ACTIVO'
+                      ? 'Archivar cliente'
+                      : 'Reactivar cliente'}
+                </button>
+              )}
+            </div>
+          )}
+          {errorEstadoCliente && (
+            <div className="detalle-aviso">
+              <Aviso>{errorEstadoCliente}</Aviso>
+            </div>
+          )}
+          {mensajeEstadoCliente && (
+            <div className="detalle-aviso">
+              <Aviso tipo="exito">{mensajeEstadoCliente}</Aviso>
+            </div>
+          )}
+          {cliente.estado === 'ARCHIVADO' && !mensajeEstadoCliente && (
             <div className="detalle-aviso">
               <Aviso tipo="informacion">
-                Este cliente está archivado. Sus datos siguen disponibles para lectura; la API no
-                permite reactivarlo desde esta interfaz.
+                Este cliente está archivado. Sus datos siguen disponibles para lectura.
               </Aviso>
             </div>
           )}
           {puedeVerConsultas && generacion?.estado === 'FINALIZADO' && generacion.advertencia && (
             <div className="detalle-aviso">
               <Aviso tipo="informacion">{generacion.advertencia}</Aviso>
-            </div>
-          )}
-          {puedeVerConsultas && cliente.estado === 'ACTIVO' && (
-            <div className="detalle-acceso-metricas">
-              <button className="boton boton-secundario boton-chico" type="button" onClick={alVerMetricas}>
-                Ver métricas GEO <Icono nombre="flecha" tamano={16} />
-              </button>
             </div>
           )}
           <div className="resumen-cliente">
