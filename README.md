@@ -13,11 +13,17 @@ pnpm dev
 
 El navegador usa rutas relativas `/api`. Vite las dirige al backend; el JWT de acceso permanece solo en memoria y la cookie de renovación es HttpOnly. En una recarga se intenta restaurar la sesión con `POST /api/autenticacion/renovar`.
 
-## Producción con Docker
+## Despliegue en el VPS
+
+Para instalarlo junto al backend ya desplegado en `/opt/geotrack`, con Compose, Caddy y el botón manual de GitHub Actions, seguir [Despliegue del frontend en el VPS](docs/DESPLIEGUE_VPS.md).
+
+## Imagen Docker independiente
+
+Para una prueba local donde el contenedor pueda alcanzar el backend mediante `host.docker.internal`:
 
 ```bash
 docker build -t gelaia-fe .
-docker run --rm -p 8081:80 -e API_UPSTREAM=http://host.docker.internal:8080 gelaia-fe
+docker run --rm -p 127.0.0.1:8082:80 -e API_UPSTREAM=http://host.docker.internal:8080 gelaia-fe
 ```
 
 `API_UPSTREAM` es el **origen alcanzable desde el contenedor** del backend, sin `/api` al final. En una red Docker compartida puede ser, por ejemplo, `http://nombre-del-servicio:8080`. En la VPS se configura al iniciar el contenedor; no hace falta reconstruir el frontend. Si hay un proxy TLS delante de Nginx, establecer también `API_FORWARDED_PROTO=https` y configurar el backend para que confíe en ese encabezado y emita la cookie con `Secure`. El frontend y `/api` deben publicarse en el mismo origen para que funcione la cookie `SameSite=Strict`.

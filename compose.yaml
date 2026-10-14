@@ -1,0 +1,27 @@
+services:
+  frontend:
+    build: .
+    environment:
+      API_UPSTREAM: ${API_UPSTREAM:?Definí API_UPSTREAM en .env}
+      API_FORWARDED_PROTO: https
+    ports:
+      - "127.0.0.1:${PUERTO_FRONTEND:-8082}:80"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+
+networks:
+  backend:
+    external: true
+    name: ${RED_DOCKER_BACKEND:?Definí RED_DOCKER_BACKEND en .env}
