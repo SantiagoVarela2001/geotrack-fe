@@ -39,12 +39,19 @@ export function DetalleCliente({
   alVerMetricas: () => void
   alVolver: () => void
 }) {
+  const vistaGeneralInicial =
+    !temaInicialUuid &&
+    tienePermiso(cuenta.permisos, 'TEMAS_VER') &&
+    tienePermiso(cuenta.permisos, 'CONSULTAS_VER')
   const [cliente, cambiarCliente] = useState<DatosCliente | null>(null)
   const [temas, cambiarTemas] = useState<DatosTema[]>([])
   const [temaUuid, cambiarTemaUuid] = useState(temaInicialUuid)
   const temaUuidActual = useRef(temaInicialUuid)
   const [consultas, cambiarConsultas] = useState<DatosConsulta[]>([])
-  const [vistaAgrupada, cambiarVistaAgrupada] = useState(false)
+  const [vistaAgrupada, cambiarVistaAgrupada] = useState(vistaGeneralInicial)
+  const [temasDesplegados, cambiarTemasDesplegados] = useState(
+    Boolean(temaInicialUuid) || !vistaGeneralInicial,
+  )
   const [temasAgrupados, cambiarTemasAgrupados] = useState<DatosTemaConConsultas[] | null>(null)
   const [errorAgrupados, cambiarErrorAgrupados] = useState('')
   const [revisionAgrupados, cambiarRevisionAgrupados] = useState(0)
@@ -105,6 +112,7 @@ export function DetalleCliente({
     cliente?.estado === 'ACTIVO' && tienePermiso(cuenta.permisos, 'CONSULTAS_EJECUTAR')
   const temaActual = temas.find((tema) => tema.uuid === temaUuid)
   const sitioWebCliente = urlWebSegura(cliente?.sitioWeb ?? null)
+  const descripcionExpandible = (cliente?.descripcion?.length ?? 0) > 100
   const consultasVisibles = vistaAgrupada
     ? (temasAgrupados?.flatMap((tema) => tema.consultas) ?? [])
     : consultas
@@ -137,6 +145,7 @@ export function DetalleCliente({
 
   function seleccionarTema(uuid: string) {
     if (guardando || cambiandoTipo) return
+    cambiarTemasDesplegados(true)
     cambiarVistaAgrupada(false)
     cambiarTemasAgrupados(null)
     cambiarSeleccionadas([])
@@ -227,7 +236,8 @@ export function DetalleCliente({
         if (!vigente) return
         cambiarTemas(datos)
         if (!datos.some((tema) => tema.uuid === temaUuidActual.current)) {
-          const siguienteTemaUuid = datos[0]?.uuid ?? ''
+          const siguienteTemaUuid =
+            !temaUuidActual.current && vistaGeneralInicial ? '' : (datos[0]?.uuid ?? '')
           temaUuidActual.current = siguienteTemaUuid
           cambiarTemaUuid(siguienteTemaUuid)
           cambiarCargandoConsultas(Boolean(siguienteTemaUuid))
@@ -242,10 +252,10 @@ export function DetalleCliente({
     return () => {
       vigente = false
     }
-  }, [cliente, clienteUuid, puedeVerTemas, revisionTemas])
+  }, [cliente, clienteUuid, puedeVerTemas, revisionTemas, vistaGeneralInicial])
 
   useEffect(() => {
-    if (!temaUuid || !puedeVerConsultas) return
+    if (!temaUuid || !puedeVerConsultas || vistaAgrupada) return
     let vigente = true
     api.consultas
       .listar(clienteUuid, temaUuid)
@@ -261,7 +271,7 @@ export function DetalleCliente({
     return () => {
       vigente = false
     }
-  }, [clienteUuid, temaUuid, puedeVerConsultas, revisionConsultas])
+  }, [clienteUuid, temaUuid, puedeVerConsultas, revisionConsultas, vistaAgrupada])
 
   /** Carga todos los temas y sus consultas solo mientras la vista general está abierta. */
   useEffect(() => {
@@ -651,61 +661,145 @@ export function DetalleCliente({
     <div className="contenido-limitado">
       {cliente && (
         <>
-          <div className="detalle-cabecera">
-            <button className="enlace-volver" type="button" onClick={alVolver}>
-              <Icono nombre="volver" tamano={17} /> Todos los clientes
-            </button>
-            <div className="encabezado-pagina encabezado-detalle">
-              <div>
-                <span className="sobrelinea">CLIENTE MONITOREADO</span>
-                <div className="titulo-con-etiqueta">
-                  <h1>{cliente.nombre}</h1>
-                  <EtiquetaEstado estado={cliente.estado} />
+          <button className="enlace-volver detalle-volver" type="button" onClick={alVolver}>
+            <Icono nombre="volver" tamano={17} /> Todos los clientes
+          </button>
+          <section className="detalle-ficha" aria-label="Resumen del cliente">
+            <div className="detalle-cabecera">
+              <div className="encabezado-pagina encabezado-detalle">
+                <div>
+                  <span className="sobrelinea">CLIENTE MONITOREADO</span>
+                  <div className="titulo-con-etiqueta">
+                    <h1>{cliente.nombre}</h1>
+                    <EtiquetaEstado estado={cliente.estado} />
+                  </div>
+                  <p>Configuración de marca y consultas de seguimiento.</p>
                 </div>
-                <p>Configuración de marca y consultas de seguimiento.</p>
+              </div>
+              {(puedeCambiarEstadoCliente || (puedeVerConsultas && cliente.estado === 'ACTIVO')) && (
+                <div className="detalle-acciones">
+                  {puedeVerConsultas && cliente.estado === 'ACTIVO' && (
+                    <button
+                      className="boton boton-secundario boton-chico detalle-accion detalle-accion-metricas"
+                      type="button"
+                      onClick={alVerMetricas}
+                    >
+                      <Icono nombre="grafico" tamano={18} />
+                      <span>Ver métricas GEO</span>
+                    </button>
+                  )}
+                  {puedeCambiarEstadoCliente && (
+                    <button
+                      className={`boton boton-secundario boton-chico detalle-accion detalle-accion-${cliente.estado === 'ACTIVO' ? 'archivar' : 'reactivar'}`}
+                      type="button"
+                      disabled={
+                        cambiandoEstadoCliente || guardando || creandoTema || cambiandoTipo || generando
+                      }
+                      onClick={() => {
+                        cambiarErrorEstadoCliente('')
+                        cambiarMensajeEstadoCliente('')
+                        cambiarConfirmandoEstadoCliente(true)
+                      }}
+                    >
+                      <Icono
+                        nombre={cliente.estado === 'ACTIVO' ? 'archivar' : 'reactivar'}
+                        tamano={18}
+                      />
+                      <span>
+                        {cambiandoEstadoCliente
+                          ? 'Guardando…'
+                          : cliente.estado === 'ACTIVO'
+                            ? 'Archivar cliente'
+                            : 'Reactivar cliente'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="resumen-cliente">
+              <div className="dato-resumen">
+                <span>MARCA</span>
+                <strong title={cliente.nombreMarca}>{cliente.nombreMarca}</strong>
+                <small title={cliente.rubro}>{cliente.rubro}</small>
+              </div>
+              <div className="dato-resumen">
+                <span>SITIO WEB</span>
+                {sitioWebCliente ? (
+                  <a
+                    href={sitioWebCliente}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={cliente.sitioWeb}
+                  >
+                    {cliente.sitioWeb}
+                  </a>
+                ) : (
+                  <strong title={cliente.sitioWeb}>{cliente.sitioWeb}</strong>
+                )}
+              </div>
+              <div className="dato-resumen">
+                <span>MERCADO</span>
+                <strong>
+                  {cliente.pais} <span className="dato-divisor">/</span> {cliente.idioma}
+                </strong>
+              </div>
+              <div className="dato-resumen">
+                <span>COMPETIDORES</span>
+                <strong>
+                  {cliente.competidores.length}{' '}
+                  {cliente.competidores.length === 1 ? 'registrado' : 'registrados'}
+                </strong>
               </div>
             </div>
-          </div>
-          {(puedeCambiarEstadoCliente || (puedeVerConsultas && cliente.estado === 'ACTIVO')) && (
-            <div className="detalle-acciones">
-              {puedeVerConsultas && cliente.estado === 'ACTIVO' && (
-                <button
-                  className="boton boton-secundario boton-chico detalle-accion detalle-accion-metricas"
-                  type="button"
-                  onClick={alVerMetricas}
-                >
-                  <Icono nombre="grafico" tamano={18} />
-                  <span>Ver métricas GEO</span>
-                </button>
-              )}
-              {puedeCambiarEstadoCliente && (
-                <button
-                  className={`boton boton-secundario boton-chico detalle-accion detalle-accion-${cliente.estado === 'ACTIVO' ? 'archivar' : 'reactivar'}`}
-                  type="button"
-                  disabled={
-                    cambiandoEstadoCliente || guardando || creandoTema || cambiandoTipo || generando
-                  }
-                  onClick={() => {
-                    cambiarErrorEstadoCliente('')
-                    cambiarMensajeEstadoCliente('')
-                    cambiarConfirmandoEstadoCliente(true)
-                  }}
-                >
-                  <Icono
-                    nombre={cliente.estado === 'ACTIVO' ? 'archivar' : 'reactivar'}
-                    tamano={18}
-                  />
-                  <span>
-                    {cambiandoEstadoCliente
-                      ? 'Guardando…'
-                      : cliente.estado === 'ACTIVO'
-                        ? 'Archivar cliente'
-                        : 'Reactivar cliente'}
+            {(descripcionExpandible || cliente.competidores.length > 0) ? (
+              <details className="detalle-extras">
+                <summary>
+                  <span className="detalle-descripcion-resumen">
+                    <span className="sobrelinea">DESCRIPCIÓN</span>
+                    <span className="detalle-descripcion-texto">
+                      {cliente.descripcion || 'Sin descripción'}
+                    </span>
                   </span>
-                </button>
-              )}
-            </div>
-          )}
+                  <span className="detalle-extras-indicador">
+                    <span className="detalle-extras-cerrado">
+                      {cliente.competidores.length > 0 ? 'Ver competidores' : 'Leer descripción'}
+                    </span>
+                    <span className="detalle-extras-abierto">Mostrar menos</span>
+                    <Icono nombre="flecha" tamano={16} />
+                  </span>
+                </summary>
+                {cliente.competidores.length > 0 && (
+                  <div className="detalle-extras-contenido">
+                    <div className="competidores-seccion">
+                      <span className="sobrelinea">ENTORNO COMPETITIVO</span>
+                      <div className="competidores-lista">
+                        {cliente.competidores.map((competidor) => {
+                          const sitioSeguro = urlWebSegura(competidor.sitioWeb)
+                          return (
+                            <span key={competidor.uuid} className="competidor-chip">
+                              {sitioSeguro ? (
+                                <a href={sitioSeguro} target="_blank" rel="noopener noreferrer">
+                                  {competidor.nombre} ↗
+                                </a>
+                              ) : (
+                                competidor.nombre
+                              )}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </details>
+            ) : (
+              <div className="detalle-descripcion-estatica">
+                <span className="sobrelinea">DESCRIPCIÓN</span>
+                <p>{cliente.descripcion || 'Sin descripción'}</p>
+              </div>
+            )}
+          </section>
           {errorEstadoCliente && (
             <div className="detalle-aviso">
               <Aviso>{errorEstadoCliente}</Aviso>
@@ -727,74 +821,6 @@ export function DetalleCliente({
             <div className="detalle-aviso">
               <Aviso tipo="informacion">{generacion.advertencia}</Aviso>
             </div>
-          )}
-          <div className="resumen-cliente">
-            <div className="dato-resumen">
-              <span>MARCA</span>
-              <strong>{cliente.nombreMarca}</strong>
-              <small>{cliente.rubro}</small>
-            </div>
-            <div className="dato-resumen">
-              <span>SITIO WEB</span>
-              {sitioWebCliente ? (
-                <a
-                  href={sitioWebCliente}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={cliente.sitioWeb}
-                >
-                  {cliente.sitioWeb}
-                </a>
-              ) : (
-                <strong>{cliente.sitioWeb}</strong>
-              )}
-            </div>
-            <div className="dato-resumen">
-              <span>MERCADO</span>
-              <strong>
-                {cliente.pais} <span className="dato-divisor">/</span> {cliente.idioma}
-              </strong>
-            </div>
-            <div className="dato-resumen">
-              <span>COMPETIDORES</span>
-              <strong>{cliente.competidores.length}</strong>
-            </div>
-          </div>
-          {(cliente.descripcion || cliente.competidores.length > 0) && (
-            <details className="detalle-extras">
-              <summary>
-                <Icono nombre="flecha" tamano={14} />
-                Ver {cliente.descripcion ? 'descripción' : ''}
-                {cliente.descripcion && cliente.competidores.length > 0 ? ' y ' : ''}
-                {cliente.competidores.length > 0 ? 'competidores' : ''}
-              </summary>
-              <div className="detalle-extras-contenido">
-                {cliente.descripcion && (
-                  <p className="descripcion-cliente">{cliente.descripcion}</p>
-                )}
-                {cliente.competidores.length > 0 && (
-                  <section className="competidores-seccion">
-                    <span className="sobrelinea">ENTORNO COMPETITIVO</span>
-                    <div className="competidores-lista">
-                      {cliente.competidores.map((competidor) => {
-                        const sitioSeguro = urlWebSegura(competidor.sitioWeb)
-                        return (
-                          <span key={competidor.uuid} className="competidor-chip">
-                            {sitioSeguro ? (
-                              <a href={sitioSeguro} target="_blank" rel="noopener noreferrer">
-                                {competidor.nombre} ↗
-                              </a>
-                            ) : (
-                              competidor.nombre
-                            )}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  </section>
-                )}
-              </div>
-            </details>
           )}
           {mostrarPanelGeneracion && (
             <GeneracionConsultas
@@ -850,34 +876,66 @@ export function DetalleCliente({
                           <Icono nombre="flecha" tamano={16} />
                         </button>
                       )}
-                      {temas.length === 0 && (
+                      {(temas.length > 0 || puedeCrearTema) ? (
+                        <>
+                          <button
+                            type="button"
+                            className="alternar-temas"
+                            aria-expanded={temasDesplegados}
+                            aria-controls="lista-temas-cliente"
+                            onClick={() => cambiarTemasDesplegados((actual) => !actual)}
+                          >
+                            <span>
+                              {temasDesplegados
+                                ? 'Ocultar temas'
+                                : temas.length > 0
+                                  ? 'Mostrar temas'
+                                  : 'Crear primer tema'}
+                            </span>
+                            <Icono nombre="flecha" tamano={16} />
+                          </button>
+                          <div
+                            id="lista-temas-cliente"
+                            className="temas-desplegados"
+                            hidden={!temasDesplegados}
+                          >
+                            {temas.length === 0 && (
+                              <p className="texto-secundario sin-temas">
+                                Todavía no hay temas para este cliente.
+                              </p>
+                            )}
+                            {temas.map((tema, indice) => (
+                              <button
+                                type="button"
+                                className={`item-tema ${!vistaAgrupada && tema.uuid === temaUuid ? 'item-tema-activo' : ''}`}
+                                key={tema.uuid}
+                                aria-pressed={!vistaAgrupada && tema.uuid === temaUuid}
+                                disabled={guardando || cambiandoTipo}
+                                onClick={() => {
+                                  seleccionarTema(tema.uuid)
+                                  cambiarRenombrando(false)
+                                  cambiarErrorAccion('')
+                                }}
+                              >
+                                <span className="numero-tema">
+                                  {String(indice + 1).padStart(2, '0')}
+                                </span>
+                                <span>{tema.nombre}</span>
+                                <Icono nombre="flecha" tamano={16} />
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
                         <p className="texto-secundario sin-temas">
                           Todavía no hay temas para este cliente.
                         </p>
                       )}
-                      {temas.map((tema, indice) => (
-                        <button
-                          type="button"
-                          className={`item-tema ${!vistaAgrupada && tema.uuid === temaUuid ? 'item-tema-activo' : ''}`}
-                          key={tema.uuid}
-                          aria-pressed={!vistaAgrupada && tema.uuid === temaUuid}
-                          disabled={guardando || cambiandoTipo}
-                          onClick={() => {
-                            seleccionarTema(tema.uuid)
-                            cambiarRenombrando(false)
-                            cambiarErrorAccion('')
-                          }}
-                        >
-                          <span className="numero-tema">{String(indice + 1).padStart(2, '0')}</span>
-                          <span>{tema.nombre}</span>
-                          <Icono nombre="flecha" tamano={16} />
-                        </button>
-                      ))}
                     </div>
                   )}
                 </>
               )}
-              {puedeCrearTema && (
+              {puedeCrearTema && (!puedeVerTemas || temasDesplegados) && (
                 <form className="crear-tema" onSubmit={crearTema}>
                   <label htmlFor="nuevo-tema">Nuevo tema</label>
                   <div className="entrada-con-boton">
