@@ -7,10 +7,13 @@ export function AccionesConsultas({
   todasBorrador,
   puedeAprobar,
   puedeDarDeBaja,
+  puedeEjecutar,
+  cantidadEjecutables,
   guardando,
   confirmarBaja,
   etiquetaBaja,
   alAprobar,
+  alEjecutarSeleccionadas,
   alAlternarTodos,
   alSolicitarBaja,
   alCancelarBaja,
@@ -22,10 +25,13 @@ export function AccionesConsultas({
   todasBorrador: boolean
   puedeAprobar: boolean
   puedeDarDeBaja: boolean
+  puedeEjecutar: boolean
+  cantidadEjecutables: number
   guardando: boolean
   confirmarBaja: boolean
   etiquetaBaja: 'Rechazar' | 'Dar de baja'
   alAprobar: () => void
+  alEjecutarSeleccionadas: () => void
   alAlternarTodos: () => void
   alSolicitarBaja: () => void
   alCancelarBaja: () => void
@@ -51,6 +57,17 @@ export function AccionesConsultas({
           </button>
         </div>
         <div className="acciones-lote">
+          {puedeEjecutar && (
+            <button
+              className="boton boton-primario boton-chico"
+              type="button"
+              onClick={alEjecutarSeleccionadas}
+              disabled={cantidadEjecutables === 0 || guardando || confirmarBaja}
+              title={cantidadEjecutables === 0 ? 'Seleccioná consultas aprobadas para ejecutarlas' : undefined}
+            >
+              <Icono nombre="flecha" tamano={15} /> Ejecutar aprobadas ({cantidadEjecutables})
+            </button>
+          )}
           {puedeAprobar && (
             <button
               className="boton boton-secundario boton-chico"
@@ -73,6 +90,11 @@ export function AccionesConsultas({
           )}
         </div>
       </div>
+      {puedeEjecutar && cantidadEjecutables > 0 && cantidadEjecutables < cantidadSeleccionadas && (
+        <p className="consultas-ejecucion-nota">
+          Se enviarán solo las {cantidadEjecutables} consultas aprobadas seleccionadas. Los borradores no se ejecutarán.
+        </p>
+      )}
       {confirmarBaja && (
         <div
           className="confirmacion-baja"

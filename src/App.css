@@ -1945,7 +1945,236 @@
 }
 .acciones-lote {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+}
+.consultas-ejecucion-nota {
+  margin: 0 0 10px;
+  color: #6b8190;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.dialogo-tipo.dialogo-ejecuciones {
+  width: 650px;
+}
+.dialogo-ejecuciones .progreso-ejecuciones {
+  display: flex;
+  flex-direction: column;
+  height: min(500px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
+  padding: 26px;
+}
+.progreso-ejecuciones-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.progreso-ejecuciones-cabecera h3 {
+  margin: 4px 0 5px;
+  color: #23465b;
+  font-size: 21px;
+  letter-spacing: -0.025em;
+}
+.dialogo-ejecuciones .progreso-ejecuciones-cabecera p {
+  margin: 0;
+  color: #647d8d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.progreso-ejecuciones-contador {
+  flex: none;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: #e4f1f7;
+  color: #256c89;
+  font-size: 12px;
+}
+.progreso-ejecuciones-en-curso {
+  display: grid;
+  align-content: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-top: 15px;
+}
+.progreso-ejecuciones-indicador {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 9px;
+  min-height: 164px;
+  text-align: center;
+  animation: progreso-aparecer 200ms ease-out both;
+}
+.progreso-ejecuciones-simbolo {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+.progreso-ejecuciones-indicador-preparando .progreso-ejecuciones-simbolo,
+.progreso-ejecuciones-indicador-enviando .progreso-ejecuciones-simbolo {
+  border: 3px solid #d8e9f1;
+  border-top-color: #2e91b2;
+  animation: progreso-giro 900ms linear infinite;
+}
+.progreso-ejecuciones-indicador-enviada .progreso-ejecuciones-simbolo {
+  background: #e5f5ec;
+  color: #1e805b;
+}
+.progreso-ejecuciones-indicador-error .progreso-ejecuciones-simbolo {
+  background: #fff0eb;
+  color: #b4513c;
+}
+.progreso-ejecuciones-indicador strong {
+  color: #254a60;
+  font-size: 16px;
+}
+.dialogo-ejecuciones .progreso-ejecuciones-indicador p {
+  margin: 0;
+  color: #6c8290;
+  font-size: 12px;
+}
+@keyframes progreso-giro {
+  to { transform: rotate(360deg); }
+}
+@keyframes progreso-aparecer {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.progreso-ejecuciones-barra {
+  width: 100%;
+  height: 9px;
+  margin: 15px 0 0;
+  overflow: hidden;
+  border-radius: 9px;
+  background: #e4eef2;
+}
+.progreso-ejecuciones-barra > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3299b6, #2b7eaa);
+  transition: width 500ms ease-out;
+}
+.progreso-ejecuciones-resultado {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 9px;
+  margin: 20px 0 17px;
+  animation: progreso-aparecer 230ms ease-out both;
+}
+.progreso-ejecuciones-resultado > div {
+  display: grid;
+  gap: 3px;
+  padding: 13px 15px;
+  border: 1px solid #dce8ed;
+  border-radius: 7px;
+  background: #f8fbfc;
+}
+.progreso-ejecuciones-resultado strong {
+  color: #24526a;
+  font-size: 24px;
+  line-height: 1;
+}
+.progreso-ejecuciones-resultado span {
+  color: #637d8d;
+  font-size: 11px;
+  font-weight: 700;
+}
+.progreso-ejecuciones-resultado .progreso-ejecuciones-resultado-enviadas {
+  border-color: #cfe8da;
+  background: #f2faf5;
+}
+.progreso-ejecuciones-resultado-enviadas strong {
+  color: #207756;
+}
+.progreso-ejecuciones-resultado .progreso-ejecuciones-resultado-errores {
+  border-color: #f0d7d0;
+  background: #fff7f5;
+}
+.progreso-ejecuciones-resultado-errores strong {
+  color: #a64d37;
+}
+.progreso-ejecuciones-lista {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  counter-reset: envio;
+  animation: progreso-aparecer 230ms ease-out both;
+}
+.progreso-ejecuciones-fila {
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid #e1eaef;
+  border-radius: 6px;
+  background: #fff;
+  counter-increment: envio;
+}
+.progreso-ejecuciones-fila::before {
+  color: #8aa1ae;
+  font-size: 11px;
+  font-weight: 800;
+  content: counter(envio, decimal-leading-zero);
+}
+.progreso-ejecuciones-fila > div {
+  min-width: 0;
+}
+.dialogo-ejecuciones .progreso-ejecuciones-fila p {
+  margin: 0;
+  color: #2d4759;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.progreso-ejecuciones-fila small {
+  display: block;
+  margin-top: 3px;
+  color: #667f8e;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.progreso-ejecuciones-estado {
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: #edf2f5;
+  color: #668092;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.progreso-ejecuciones-enviando .progreso-ejecuciones-estado {
+  background: #e6f2fa;
+  color: #1f6e9c;
+}
+.progreso-ejecuciones-enviada .progreso-ejecuciones-estado {
+  background: #e6f5ed;
+  color: #207756;
+}
+.progreso-ejecuciones-error .progreso-ejecuciones-estado {
+  background: #fff0eb;
+  color: #a64d37;
+}
+.progreso-ejecuciones-omitida .progreso-ejecuciones-estado {
+  background: #f2f2f2;
+  color: #7a858b;
+}
+.progreso-ejecuciones-acciones {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
 }
 .confirmacion-baja {
   padding: 14px;
@@ -2934,8 +3163,15 @@
   .generacion-estado-punto,
   .generacion-actividad span,
   .ejecucion-pulso,
-  .ejecucion-progreso-linea {
+  .ejecucion-progreso-linea,
+  .progreso-ejecuciones-simbolo,
+  .progreso-ejecuciones-indicador,
+  .progreso-ejecuciones-resultado,
+  .progreso-ejecuciones-lista {
     animation: none;
+  }
+  .progreso-ejecuciones-barra > span {
+    transition: none;
   }
   .generacion-actividad span {
     left: 0;
@@ -2950,6 +3186,28 @@
 }
 
 @media (max-width: 560px) {
+  .dialogo-ejecuciones .progreso-ejecuciones {
+    padding: 18px;
+  }
+  .progreso-ejecuciones-cabecera {
+    flex-wrap: wrap;
+  }
+  .progreso-ejecuciones-fila {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+  .progreso-ejecuciones-estado {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .progreso-ejecuciones-resultado {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .progreso-ejecuciones-resultado-omitidas {
+    grid-column: 1 / -1;
+  }
+  .progreso-ejecuciones-acciones .boton {
+    width: 100%;
+  }
   .ejecucion-resumen {
     grid-template-columns: 1fr;
   }

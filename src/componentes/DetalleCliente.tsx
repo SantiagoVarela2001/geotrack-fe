@@ -17,6 +17,7 @@ import { GestionCompetidores } from './GestionCompetidores'
 import { ConfirmarTipoConsulta } from './ConfirmarTipoConsulta'
 import { FilaConsulta } from './FilaConsulta'
 import { GeneracionConsultas } from './GeneracionConsultas'
+import { ProgresoEjecuciones, type EnvioConsulta } from './ProgresoEjecuciones'
 import { VistaConsultasAgrupadas } from './VistaConsultasAgrupadas'
 
 const consultaInicial: SolicitudCrearConsulta = {
@@ -24,6 +25,8 @@ const consultaInicial: SolicitudCrearConsulta = {
   tipoConsulta: 'REFERENCIA',
   prioridad: 'MEDIA',
 }
+
+const pausaParaMostrarResultadoMs = 800
 
 export function DetalleCliente({
   clienteUuid,
@@ -79,6 +82,10 @@ export function DetalleCliente({
     { ...consultaInicial },
   ])
   const [seleccionadas, cambiarSeleccionadas] = useState<string[]>([])
+  const [enviosLote, cambiarEnviosLote] = useState<EnvioConsulta[]>([])
+  const [enviandoLote, cambiarEnviandoLote] = useState(false)
+  const montado = useRef(true)
+  const loteActivo = useRef(false)
   const [confirmarBaja, cambiarConfirmarBaja] = useState(false)
   const [guardando, cambiarGuardando] = useState(false)
   const [consultaParaCambiarTipo, definirConsultaParaCambiarTipo] = useState<DatosConsulta | null>(
@@ -126,6 +133,9 @@ export function DetalleCliente({
   const consultasElegidas = consultasVisibles.filter((consulta) =>
     seleccionadas.includes(consulta.uuid),
   )
+  const consultasAEnviar = consultasElegidas.filter(
+    (consulta) => consulta.estadoConsulta === 'APROBADA',
+  )
   const todasBorrador =
     consultasElegidas.length > 0 &&
     consultasElegidas.length === seleccionadas.length &&
@@ -153,6 +163,7 @@ export function DetalleCliente({
     cambiarVistaAgrupada(false)
     cambiarTemasAgrupados(null)
     cambiarSeleccionadas([])
+    cambiarEnviosLote([])
     cambiarConfirmarBaja(false)
     if (uuid === temaUuid) return
     temaUuidActual.current = uuid
@@ -173,6 +184,7 @@ export function DetalleCliente({
     cambiarRenombrando(false)
     cambiarMostrarConsultas(false)
     cambiarSeleccionadas([])
+    cambiarEnviosLote([])
     cambiarConfirmarBaja(false)
     cambiarErrorAccion('')
     cambiarMensajeAccion('')
@@ -195,6 +207,70 @@ export function DetalleCliente({
       return
     }
     alAbrirEjecucion(consulta, temaDeConsultaUuid, true)
+  }
+
+  useEffect(() => {
+    montado.current = true
+    return () => {
+      montado.current = false
+    }
+  }, [])
+
+  /** Espera cada POST antes de enviar el siguiente y registra cada respuesta por separado. */
+  async function ejecutarSeleccionadas() {
+    if (
+      !puedeEjecutar || guardando || cambiandoTipo || confirmarBaja ||
+      loteActivo.current || consultasAEnviar.length === 0
+    ) return
+
+    const lote = consultasAEnviar.map((consulta) => ({ ...consulta }))
+    loteActivo.current = true
+    cambiarGuardando(true)
+    cambiarEnviandoLote(true)
+    cambiarErrorAccion('')
+    cambiarMensajeAccion('')
+    cambiarEnviosLote(consultasElegidas.map((consulta) => ({
+      uuid: consulta.uuid,
+      texto: consulta.texto,
+      estado: consulta.estadoConsulta === 'APROBADA' ? 'ESPERANDO' : 'OMITIDA',
+      detalle: consulta.estadoConsulta === 'APROBADA'
+        ? undefined
+        : 'La consulta está en borrador. Aprobala antes de ejecutarla.',
+    })))
+
+    for (const consulta of lote) {
+      if (!montado.current) break
+      cambiarEnviosLote((actuales) => actuales.map((envio) =>
+        envio.uuid === consulta.uuid ? { ...envio, estado: 'ENVIANDO' } : envio,
+      ))
+      try {
+        const intento = await api.ejecuciones.iniciar(clienteUuid, consulta.uuid)
+        if (!montado.current) break
+        cambiarEnviosLote((actuales) => actuales.map((envio) =>
+          envio.uuid === consulta.uuid
+            ? intento.estado === 'FALLIDO'
+              ? { ...envio, estado: 'ERROR', detalle: intento.mensaje || 'El servidor informó un fallo en este intento.' }
+              : { ...envio, estado: 'ENVIADA', detalle: `Solicitud aceptada. Estado inicial: ${intento.estado.toLowerCase()}.` }
+            : envio,
+        ))
+      } catch (causa) {
+        if (!montado.current) break
+        cambiarEnviosLote((actuales) => actuales.map((envio) =>
+          envio.uuid === consulta.uuid
+            ? { ...envio, estado: 'ERROR', detalle: obtenerMensajeError(causa) }
+            : envio,
+        ))
+      }
+      if (montado.current) {
+        await new Promise<void>((resolver) => window.setTimeout(resolver, pausaParaMostrarResultadoMs))
+      }
+    }
+    loteActivo.current = false
+    if (montado.current) {
+      cambiarEnviandoLote(false)
+      cambiarGuardando(false)
+      cambiarSeleccionadas([])
+    }
   }
 
   /** Espera cliente y proceso antes de presentar cualquier dato de la página. */
@@ -984,7 +1060,7 @@ export function DetalleCliente({
                     temas={temasAgrupados}
                     alAbrirTema={seleccionarTema}
                     seleccionadas={seleccionadas}
-                    puedeSeleccionar={puedeAprobar || puedeDarDeBaja}
+                    puedeSeleccionar={puedeAprobar || puedeDarDeBaja || puedeEjecutar}
                     seleccionBloqueada={guardando || cambiandoTipo || confirmarBaja}
                     navegacionBloqueada={guardando || cambiandoTipo || confirmarBaja}
                     puedeCambiarTipo={puedeCambiarTipo}
@@ -1001,7 +1077,7 @@ export function DetalleCliente({
                       </>
                     }
                     acciones={
-                      (puedeAprobar || puedeDarDeBaja) && (
+                      (puedeAprobar || puedeDarDeBaja || puedeEjecutar) && (
                         <AccionesConsultas
                           cantidadSeleccionadas={seleccionadas.length}
                           cantidadVisibles={consultasVisibles.length}
@@ -1009,10 +1085,13 @@ export function DetalleCliente({
                           todasBorrador={todasBorrador}
                           puedeAprobar={puedeAprobar}
                           puedeDarDeBaja={puedeDarDeBaja}
+                          puedeEjecutar={puedeEjecutar}
+                          cantidadEjecutables={consultasAEnviar.length}
                           guardando={guardando || cambiandoTipo}
                           confirmarBaja={confirmarBaja}
                           etiquetaBaja={etiquetaBajaAgrupada}
                           alAprobar={aprobarSeleccionadas}
+                          alEjecutarSeleccionadas={ejecutarSeleccionadas}
                           alAlternarTodos={alternarSeleccionTotal}
                           alSolicitarBaja={() => cambiarConfirmarBaja(true)}
                           alCancelarBaja={() => cambiarConfirmarBaja(false)}
@@ -1126,7 +1205,7 @@ export function DetalleCliente({
                         />
                       ) : (
                         <>
-                          {(puedeAprobar || puedeDarDeBaja) && (
+                          {(puedeAprobar || puedeDarDeBaja || puedeEjecutar) && (
                             <AccionesConsultas
                               cantidadSeleccionadas={seleccionadas.length}
                               cantidadVisibles={consultasVisibles.length}
@@ -1134,10 +1213,13 @@ export function DetalleCliente({
                               todasBorrador={todasBorrador}
                               puedeAprobar={puedeAprobar}
                               puedeDarDeBaja={puedeDarDeBaja}
+                              puedeEjecutar={puedeEjecutar}
+                              cantidadEjecutables={consultasAEnviar.length}
                               guardando={guardando || cambiandoTipo}
                               confirmarBaja={confirmarBaja}
                               etiquetaBaja="Dar de baja"
                               alAprobar={aprobarSeleccionadas}
+                              alEjecutarSeleccionadas={ejecutarSeleccionadas}
                               alAlternarTodos={alternarSeleccionTotal}
                               alSolicitarBaja={() => cambiarConfirmarBaja(true)}
                               alCancelarBaja={() => cambiarConfirmarBaja(false)}
@@ -1166,7 +1248,7 @@ export function DetalleCliente({
                                 }
                                 accionesBloqueadas={guardando || cambiandoTipo || confirmarBaja}
                                 alAlternar={
-                                  puedeAprobar || puedeDarDeBaja
+                                  puedeAprobar || puedeDarDeBaja || puedeEjecutar
                                     ? () => alternarSeleccion(consulta.uuid)
                                     : undefined
                                 }
@@ -1307,6 +1389,13 @@ export function DetalleCliente({
               enviando={cambiandoEstadoCliente}
               alCancelar={() => cambiarConfirmandoEstadoCliente(false)}
               alConfirmar={() => void cambiarEstadoDelCliente()}
+            />
+          )}
+          {enviosLote.length > 0 && (
+            <ProgresoEjecuciones
+              envios={enviosLote}
+              enCurso={enviandoLote}
+              alCerrar={() => cambiarEnviosLote([])}
             />
           )}
         </>
