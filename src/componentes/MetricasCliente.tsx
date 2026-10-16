@@ -4,10 +4,10 @@ import type {
   DatosCliente,
   DatosCuenta,
   DatosMetricasCliente,
-  DatosMetricasDia,
 } from '../api/tipos'
 import { obtenerMensajeError, tienePermiso } from '../utilidades'
 import { Aviso, Icono } from './Comun'
+import { GraficoEvolucionDiaria } from './GraficoEvolucionDiaria'
 
 type Periodo = { desde: string; hasta: string }
 type FiltroRapido = 'mes' | 'seisMeses' | 'anio'
@@ -72,47 +72,6 @@ function Indicador({
       <dd>{valor}</dd>
       {descripcion && <small>{descripcion}</small>}
     </div>
-  )
-}
-
-function DiaMetricas({ dia, maximo }: { dia: DatosMetricasDia; maximo: number }) {
-  const modelos = Object.entries(dia.modelosAnalizados).sort(([a], [b]) => a.localeCompare(b))
-  const ancho = Math.max(3, (dia.ejecuciones / maximo) * 100)
-
-  return (
-    <li className="metricas-dia">
-      <div className="metricas-dia-cabecera">
-        <strong>{fechaLegible(dia.dia)}</strong>
-        <span>{enteros.format(dia.ejecuciones)} ejecuciones</span>
-      </div>
-      <div className="metricas-dia-pista" aria-hidden="true">
-        <span style={{ width: `${ancho}%` }} />
-      </div>
-      <div className="metricas-dia-estados">
-        <span>{enteros.format(dia.analizadas)} analizadas</span>
-        <span>{enteros.format(dia.pendientes)} pendientes</span>
-        <span>{enteros.format(dia.fallidas)} fallidas</span>
-      </div>
-      <dl className="metricas-dia-tasas">
-        <div>
-          <dt>Mención</dt>
-          <dd>{tasaLegible(dia.tasaMencionMarca)}</dd>
-        </div>
-        <div>
-          <dt>Con citas</dt>
-          <dd>{tasaLegible(dia.tasaCitas)}</dd>
-        </div>
-        <div>
-          <dt>Citas propias</dt>
-          <dd>{tasaLegible(dia.tasaCitasSitioCliente)}</dd>
-        </div>
-      </dl>
-      <p className="metricas-dia-modelos">
-        {modelos.length > 0
-          ? `Modelos analizados: ${modelos.map(([nombre, cantidad]) => `${nombre} (${enteros.format(cantidad)})`).join(' · ')}`
-          : 'Sin modelos analizados'}
-      </p>
-    </li>
   )
 }
 
@@ -212,8 +171,6 @@ export function MetricasCliente({
     cambiarCargando(true)
     cambiarPeriodo({ ...periodo })
   }
-
-  const maximoDiario = Math.max(1, ...(metricas?.serieDiaria.map((dia) => dia.ejecuciones) ?? []))
 
   return (
     <div className="pagina-metricas">
@@ -327,36 +284,28 @@ export function MetricasCliente({
             {metricas.serieDiaria.length === 0 ? (
               <p className="metricas-vacio">No hubo ejecuciones en este período.</p>
             ) : (
-              <ol className="metricas-serie">
-                {metricas.serieDiaria.map((dia) => <DiaMetricas key={dia.dia} dia={dia} maximo={maximoDiario} />)}
-              </ol>
+              <GraficoEvolucionDiaria
+                key={`${metricas.clienteUuid}:${metricas.desde}:${metricas.hasta}`}
+                metricas={metricas}
+              />
             )}
-            <p className="metricas-nota">
-              Solo aparecen los días con ejecuciones. Cada barra representa el total de ese día.
-              Los registros antiguos sin día de ejecución no participan.
-            </p>
           </section>
 
           <section className="metricas-seccion" aria-labelledby="metricas-competidores-titulo">
-            <h2 id="metricas-competidores-titulo">Competidores</h2>
+            <h2 id="metricas-competidores-titulo">Competidores en el período</h2>
             {metricas.competidores.length === 0 ? (
               <p className="metricas-vacio">No hay evaluaciones de competidores en este período.</p>
             ) : (
               <ul className="metricas-competidores">
-                {metricas.competidores.map((competidor) => (
-                  <li key={competidor.competidorUuid}>
-                    <div className="metricas-competidor-cabecera">
+                {[...metricas.competidores]
+                  .sort((a, b) => b.menciones - a.menciones || a.nombre.localeCompare(b.nombre))
+                  .map((competidor) => (
+                    <li key={competidor.competidorUuid}>
                       <strong>{competidor.nombre}</strong>
-                      <span>{tasaLegible(competidor.tasaMencion)}</span>
-                    </div>
-                    {competidor.tasaMencion !== null && (
-                      <div className="metricas-competidor-pista" aria-hidden="true">
-                        <span style={{ width: `${Math.min(100, Math.max(0, competidor.tasaMencion))}%` }} />
-                      </div>
-                    )}
-                    <small>{enteros.format(competidor.menciones)} menciones en {enteros.format(competidor.evaluaciones)} evaluaciones</small>
-                  </li>
-                ))}
+                      <span><b>{enteros.format(competidor.menciones)}</b> {competidor.menciones === 1 ? 'mención' : 'menciones'}</span>
+                      <small>en {enteros.format(competidor.evaluaciones)} respuestas evaluadas · {tasaLegible(competidor.tasaMencion)}</small>
+                    </li>
+                  ))}
               </ul>
             )}
             <p className="metricas-nota">Cada tasa usa las respuestas donde se evaluó a ese competidor; el denominador puede diferir del total del cliente.</p>

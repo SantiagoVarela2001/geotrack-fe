@@ -4,6 +4,9 @@ export type Permiso =
   | 'ORGANIZACIONES_VER'
   | 'GASTOS_IA_VER'
   | 'USUARIOS_CREAR'
+  | 'USUARIOS_VER'
+  | 'USUARIOS_ELIMINAR'
+  | 'USUARIOS_REACTIVAR'
   | 'CLIENTES_CREAR'
   | 'CLIENTES_VER'
   | 'CLIENTES_CAMBIAR_ESTADO'
@@ -266,4 +269,13 @@ export interface RespuestaUsuario {
   nombre: string
   correoElectronico: string
   rol: 'PROPIETARIO' | 'MIEMBRO'
+}
+
+export interface DatosUsuarioOrganizacion {
+  uuid: string
+  nombre: string
+  correoElectronico: string
+  roles: string[]
+  activo: boolean
+  fechaEliminacion: string | null
 }

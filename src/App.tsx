@@ -442,12 +442,10 @@ function App() {
       </>
     )
 
-  const puedeCrearUsuarios =
-    (cuenta.roles.includes('SYSADMIN') || cuenta.roles.includes('PROPIETARIO')) &&
-    tienePermiso(cuenta.permisos, 'USUARIOS_CREAR')
-  const esAdministrador =
-    (cuenta.roles.includes('SYSADMIN') &&
-      tienePermiso(cuenta.permisos, 'ORGANIZACIONES_CREAR')) || puedeCrearUsuarios
+  const esAdministrador = cuenta.roles.includes('SYSADMIN') ||
+    (cuenta.roles.includes('PROPIETARIO') &&
+      ['USUARIOS_CREAR', 'USUARIOS_VER', 'USUARIOS_ELIMINAR', 'USUARIOS_REACTIVAR']
+        .some((permiso) => tienePermiso(cuenta.permisos, permiso)))
   const puedeVerGastosIa =
     cuenta.roles.includes('SYSADMIN') && tienePermiso(cuenta.permisos, 'GASTOS_IA_VER')
   const nombreVista = ({

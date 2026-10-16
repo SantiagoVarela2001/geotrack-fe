@@ -12,6 +12,7 @@ import type {
   DatosPlan,
   DatosTema,
   DatosTemaConConsultas,
+  DatosUsuarioOrganizacion,
   Pagina,
   RespuestaAcceso,
   RespuestaUsuario,
@@ -385,6 +386,20 @@ export const api = {
           method: 'POST',
           body: JSON.stringify(datos),
         },
+      ),
+    listarUsuarios: (organizacionUuid: string) =>
+      solicitar<DatosUsuarioOrganizacion[]>(
+        `/api/organizaciones/${encodeURIComponent(organizacionUuid)}/usuarios`,
+      ),
+    darDeBajaUsuario: (organizacionUuid: string, usuarioUuid: string) =>
+      solicitar<DatosUsuarioOrganizacion>(
+        `/api/organizaciones/${encodeURIComponent(organizacionUuid)}/usuarios/${encodeURIComponent(usuarioUuid)}`,
+        { method: 'DELETE' },
+      ),
+    reactivarUsuario: (organizacionUuid: string, usuarioUuid: string) =>
+      solicitar<DatosUsuarioOrganizacion>(
+        `/api/organizaciones/${encodeURIComponent(organizacionUuid)}/usuarios/${encodeURIComponent(usuarioUuid)}/reactivar`,
+        { method: 'PATCH' },
       ),
   },
 }

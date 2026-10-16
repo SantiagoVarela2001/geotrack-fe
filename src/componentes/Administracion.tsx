@@ -3,6 +3,7 @@ import { ErrorApi, api } from '../api/clienteApi'
 import type { DatosCuenta, DatosOrganizacion, DatosPlan, RespuestaUsuario } from '../api/tipos'
 import { obtenerMensajeError, tienePermiso } from '../utilidades'
 import { Aviso, Icono } from './Comun'
+import { GestionUsuarios } from './GestionUsuarios'
 
 function mensajeErrorAltaUsuario(causa: unknown): string {
   if (causa instanceof ErrorApi) {
@@ -25,6 +26,12 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
     esSysadmin && tienePermiso(cuenta.permisos, 'PLANES_VER')
   const puedeCrearUsuario =
     (esSysadmin || esPropietario) && tienePermiso(cuenta.permisos, 'USUARIOS_CREAR')
+  const puedeVerUsuarios =
+    esSysadmin || (esPropietario && tienePermiso(cuenta.permisos, 'USUARIOS_VER'))
+  const puedeEliminarUsuarios =
+    esSysadmin || (esPropietario && tienePermiso(cuenta.permisos, 'USUARIOS_ELIMINAR'))
+  const puedeReactivarUsuarios =
+    (esSysadmin || esPropietario) && tienePermiso(cuenta.permisos, 'USUARIOS_REACTIVAR')
   const [nombreOrganizacion, cambiarNombreOrganizacion] = useState('')
   const [planes, cambiarPlanes] = useState<DatosPlan[]>([])
   const [planUuid, cambiarPlanUuid] = useState('')
@@ -34,6 +41,9 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
   const [organizaciones, cambiarOrganizaciones] = useState<DatosOrganizacion[]>([])
   const [organizacionCreada, cambiarOrganizacionCreada] = useState<DatosOrganizacion | null>(null)
   const [organizacionUuid, cambiarOrganizacionUuid] = useState('')
+  const [organizacionConsultaUuid, cambiarOrganizacionConsultaUuid] = useState('')
+  const [organizacionManual, cambiarOrganizacionManual] = useState('')
+  const [revisionUsuarios, cambiarRevisionUsuarios] = useState(0)
   const [cargandoOrganizaciones, cambiarCargandoOrganizaciones] = useState(puedeVerOrganizaciones)
   const [errorOrganizaciones, cambiarErrorOrganizaciones] = useState('')
   const [revisionOrganizaciones, cambiarRevisionOrganizaciones] = useState(0)
@@ -49,6 +59,10 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
   const [guardandoOrganizacion, cambiarGuardandoOrganizacion] = useState(false)
   const [guardandoUsuario, cambiarGuardandoUsuario] = useState(false)
   const organizacionAltaUuid = esSysadmin ? organizacionUuid : cuenta.organizacionUuid
+  const organizacionUsuariosUuid = esSysadmin ? organizacionConsultaUuid : cuenta.organizacionUuid
+  const nombreOrganizacionSeleccionada = organizaciones.find(
+    (organizacion) => organizacion.uuid === organizacionConsultaUuid,
+  )?.nombre
 
   useEffect(() => {
     if (!puedeCrearOrganizacion || !puedeVerPlanes) return
@@ -112,6 +126,7 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
         ),
       )
       cambiarOrganizacionUuid(creada.uuid)
+      cambiarOrganizacionConsultaUuid(creada.uuid)
       if (cargandoOrganizaciones) cambiarRevisionOrganizaciones((actual) => actual + 1)
       cambiarNombreOrganizacion('')
       cambiarPlanUuid('')
@@ -150,6 +165,8 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
       cambiarCorreo('')
       cambiarClave('')
       cambiarRol(esSysadmin ? 'PROPIETARIO' : 'MIEMBRO')
+      if (esSysadmin) cambiarOrganizacionConsultaUuid(organizacionAltaUuid)
+      cambiarRevisionUsuarios((actual) => actual + 1)
     } catch (causa) {
       cambiarErrorUsuario(mensajeErrorAltaUsuario(causa))
     } finally {
@@ -163,15 +180,21 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
         <div>
           <span className="sobrelinea">{esSysadmin ? 'PLATAFORMA' : 'TU ORGANIZACIÓN'}</span>
           <h1>Administración</h1>
-          <p>{esSysadmin ? 'Altas de organizaciones y usuarios.' : 'Alta de usuarios de tu organización.'}</p>
+          <p>{esSysadmin ? 'Organizaciones y cuentas de usuario.' : 'Gestioná las cuentas de tu organización.'}</p>
         </div>
       </div>
-      {!puedeCrearOrganizacion && !puedeCrearUsuario && (
+      {!puedeCrearOrganizacion && !puedeCrearUsuario && !puedeVerOrganizaciones && !puedeVerUsuarios && (
         <Aviso tipo="informacion">
-          Tu cuenta no tiene permisos de alta de organizaciones ni usuarios.
+          Tu cuenta no tiene permisos para administrar organizaciones ni usuarios.
         </Aviso>
       )}
-      <div className="admin-grilla">
+      {!puedeVerUsuarios && (puedeEliminarUsuarios || puedeReactivarUsuarios) && (
+        <Aviso tipo="informacion">
+          Necesitás el permiso USUARIOS_VER para elegir una cuenta antes de cambiar su estado.
+        </Aviso>
+      )}
+      {(puedeCrearOrganizacion || puedeCrearUsuario) && (
+        <div className="admin-grilla">
         {puedeCrearOrganizacion && (
           <section className="tarjeta admin-tarjeta">
             <div className="admin-tarjeta-icono">
@@ -278,7 +301,10 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
                   <select
                     required
                     value={organizacionUuid}
-                    onChange={(evento) => cambiarOrganizacionUuid(evento.target.value)}
+                    onChange={(evento) => {
+                      cambiarOrganizacionUuid(evento.target.value)
+                      cambiarOrganizacionConsultaUuid(evento.target.value)
+                    }}
                   >
                     <option value="" disabled>
                       {cargandoOrganizaciones
@@ -380,15 +406,92 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
             </form>
           </section>
         )}
-      </div>
-      {esSysadmin && (
-        <div className="nota-disponibilidad">
-          <Icono nombre="escudo" tamano={17} />
-          <p>
-            El selector muestra organizaciones activas. La API todavía no permite listar ni editar
-            usuarios.
-          </p>
         </div>
+      )}
+      {puedeVerOrganizaciones && (
+        <section className="tarjeta admin-seccion" aria-labelledby="admin-organizaciones-titulo">
+          <div className="admin-seccion-cabecera">
+            <div>
+              <h2 id="admin-organizaciones-titulo">Organizaciones activas</h2>
+              <p>Seleccioná una organización para ver y gestionar sus usuarios.</p>
+            </div>
+          </div>
+          {cargandoOrganizaciones ? (
+            <p className="admin-lista-vacio" role="status">Cargando organizaciones…</p>
+          ) : errorOrganizaciones ? (
+            <div className="admin-lista-error">
+              <Aviso>{errorOrganizaciones}</Aviso>
+              <button className="boton boton-secundario boton-chico" type="button" onClick={() => {
+                cambiarErrorOrganizaciones('')
+                cambiarCargandoOrganizaciones(true)
+                cambiarRevisionOrganizaciones((actual) => actual + 1)
+              }}>Reintentar</button>
+            </div>
+          ) : organizaciones.length === 0 ? (
+            <p className="admin-lista-vacio">Todavía no hay organizaciones activas.</p>
+          ) : (
+            <ul className="admin-organizaciones">
+              {organizaciones.map((organizacion) => (
+                <li key={organizacion.uuid}>
+                  <strong>{organizacion.nombre}</strong>
+                  {puedeVerUsuarios && (
+                    <button className="boton boton-secundario boton-chico" type="button"
+                      aria-pressed={organizacionConsultaUuid === organizacion.uuid}
+                      onClick={() => {
+                        cambiarOrganizacionUuid(organizacion.uuid)
+                        cambiarOrganizacionConsultaUuid(organizacion.uuid)
+                      }}>
+                      {organizacionConsultaUuid === organizacion.uuid ? 'Seleccionada' : 'Ver usuarios'}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {puedeVerUsuarios && (
+        <section className="tarjeta admin-seccion" aria-labelledby="admin-usuarios-titulo">
+          <div className="admin-seccion-cabecera">
+            <div>
+              <h2 id="admin-usuarios-titulo">Usuarios{nombreOrganizacionSeleccionada && esSysadmin
+                ? ` de ${nombreOrganizacionSeleccionada}` : ''}</h2>
+              <p>{esSysadmin
+                ? 'Elegí una organización activa o consultá otra por su UUID.'
+                : 'Cuentas de tu organización.'}</p>
+              {esSysadmin && organizacionConsultaUuid && !nombreOrganizacionSeleccionada && (
+                <small>Organización: {organizacionConsultaUuid}</small>
+              )}
+            </div>
+          </div>
+          {esSysadmin && (
+            <details className="admin-consulta-otra">
+              <summary>Consultar otra organización por UUID</summary>
+              <form className="admin-consulta-uuid" onSubmit={(evento) => {
+                evento.preventDefault()
+                cambiarOrganizacionConsultaUuid(organizacionManual.trim())
+              }}>
+                <label htmlFor="admin-uuid-organizacion">UUID de la organización</label>
+                <div>
+                  <input id="admin-uuid-organizacion" type="text" required
+                    pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+                    title="Ingresá un UUID válido de organización"
+                    value={organizacionManual}
+                    onChange={(evento) => cambiarOrganizacionManual(evento.target.value)}
+                    placeholder="UUID de la organización" />
+                  <button className="boton boton-secundario boton-chico" type="submit">Consultar</button>
+                </div>
+              </form>
+            </details>
+          )}
+          {organizacionUsuariosUuid ? (
+            <GestionUsuarios key={organizacionUsuariosUuid} organizacionUuid={organizacionUsuariosUuid}
+              puedeEliminar={puedeEliminarUsuarios} puedeReactivar={puedeReactivarUsuarios}
+              revisionAlta={revisionUsuarios} />
+          ) : (
+            <p className="admin-lista-vacio">Seleccioná una organización para ver sus usuarios.</p>
+          )}
+        </section>
       )}
     </div>
   )

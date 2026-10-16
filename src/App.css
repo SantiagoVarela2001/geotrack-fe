@@ -1222,99 +1222,246 @@
   font-size: 13px;
   text-align: center;
 }
-.metricas-serie,
 .metricas-competidores {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid #e0e9ed;
+  border-radius: 7px;
+}
+.metricas-competidores li {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(265px, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 16px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e8eef1;
+}
+.metricas-competidores li:last-child {
+  border-bottom: 0;
+}
+.metricas-competidores li > strong {
+  color: #1d3a50;
+  font-size: 12px;
+}
+.metricas-competidores li > span {
+  color: #4e6979;
+  font-size: 12px;
+}
+.metricas-competidores li > span b {
+  color: #137d8a;
+  font-size: 14px;
+}
+.metricas-competidores li small {
+  grid-column: 1 / -1;
+  color: #718494;
+  font-size: 11px;
+}
+.metricas-diario {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 22px;
+}
+.metricas-diario-visual {
+  min-width: 0;
+}
+.metricas-diario-encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.metricas-diario-encabezado strong,
+.metricas-diario-encabezado span {
+  display: block;
+}
+.metricas-diario-encabezado strong {
+  color: #1d3a50;
+  font-size: 13px;
+}
+.metricas-diario-encabezado div > span {
+  margin-top: 3px;
+  color: #718494;
+  font-size: 11px;
+}
+.metricas-diario-tendencia {
+  flex: none;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: #edf7f7;
+  color: #137d8a;
+  font-size: 11px;
+  font-weight: 700;
+}
+.metricas-diario-desplazamiento {
+  overflow-x: auto;
+  margin-top: 9px;
+}
+.metricas-diario-grafico {
+  display: block;
+  width: 100%;
+  height: auto;
+  outline: none;
+  cursor: crosshair;
+  touch-action: pan-x;
+}
+.metricas-diario-grafico:focus-visible {
+  outline: 2px solid #1561cf;
+  outline-offset: -2px;
+}
+.metricas-diario-base {
+  stroke: #dae7e9;
+  stroke-width: 1;
+}
+.metricas-diario-eje {
+  fill: #81929d;
+  font-size: 10px;
+}
+.metricas-diario-regresion {
+  stroke: #a9bdc6;
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+  vector-effect: non-scaling-stroke;
+}
+.metricas-diario-linea {
+  fill: none;
+  stroke: #159cac;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.metricas-diario-punto {
+  fill: #159cac;
+}
+.metricas-diario-seleccion {
+  stroke: #b4c4cb;
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.metricas-diario-punto-activo {
+  fill: #fff;
+  stroke: #087c90;
+  stroke-width: 2.5;
+}
+.metricas-diario-ayuda {
+  margin: 3px 0 0;
+  color: #82939e;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.metricas-diario-detalle {
+  min-width: 0;
+  padding-left: 20px;
+  border-left: 1px solid #e5ecef;
+}
+.metricas-diario-detalle h3 {
+  margin: 0 0 11px;
+  color: #536b7a;
+  font-size: 12px;
+  font-weight: 700;
+}
+.metricas-diario-destacado {
+  display: flex;
+  align-items: center;
   gap: 10px;
+}
+.metricas-diario-destacado strong {
+  color: #087c90;
+  font-size: 34px;
+  line-height: 1;
+}
+.metricas-diario-destacado span {
+  color: #536b7a;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.metricas-diario-cifras {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 0;
+}
+.metricas-diario-cifras dt {
+  color: #718494;
+  font-size: 10px;
+}
+.metricas-diario-cifras dd {
+  margin: 3px 0 0;
+  color: #24475c;
+  font-size: 14px;
+  font-weight: 750;
+}
+.metricas-diario-estados {
+  margin: 9px 0 0;
+  color: #718494;
+  font-size: 10px;
+}
+.metricas-diario-competidores {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e8eef1;
+}
+.metricas-diario-competidores h4 {
+  margin: 0 0 7px;
+  color: #36546a;
+  font-size: 11px;
+}
+.metricas-diario-competidores p {
+  margin: 0;
+  color: #718494;
+  font-size: 11px;
+}
+.metricas-diario-competidores ul {
+  max-height: 125px;
+  overflow-y: auto;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.metricas-serie {
-  max-height: 670px;
-  overflow-y: auto;
-}
-.metricas-dia,
-.metricas-competidores li {
-  min-width: 0;
-  padding: 15px;
-  border: 1px solid #e0e9ed;
-  border-radius: 7px;
-  background: #fbfdfd;
-}
-.metricas-dia-cabecera,
-.metricas-competidor-cabecera {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  color: #1d3a50;
-  font-size: 12px;
-}
-.metricas-dia-cabecera span {
-  flex: none;
-  color: #617a8c;
-  font-size: 11px;
-}
-.metricas-dia-pista,
-.metricas-competidor-pista {
-  height: 7px;
-  margin: 11px 0;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e2edf1;
-}
-.metricas-dia-pista span,
-.metricas-competidor-pista span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #159cac;
-}
-.metricas-dia-estados {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 9px;
-  color: #596f80;
-  font-size: 10px;
-}
-.metricas-dia-tasas {
+.metricas-diario-competidores li {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
-  margin: 12px 0 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1px 8px;
+  padding: 5px 0;
+  border-top: 1px solid #edf1f3;
 }
-.metricas-dia-tasas dt {
-  color: #788b98;
-  font-size: 9px;
-}
-.metricas-dia-tasas dd {
-  margin: 3px 0 0;
+.metricas-diario-competidores li > span {
+  overflow-wrap: anywhere;
   color: #24475c;
   font-size: 11px;
-  font-weight: 750;
 }
-.metricas-dia-modelos {
-  margin: 12px 0 0;
-  color: #718494;
+.metricas-diario-competidores li > strong {
+  color: #17334b;
+  font-size: 12px;
+}
+.metricas-diario-competidores li > small {
+  grid-column: 1 / -1;
+  color: #82939e;
   font-size: 10px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
 }
-.metricas-competidor-cabecera span {
-  flex: none;
-  color: #137d8a;
-  font-weight: 750;
-}
-.metricas-competidores li small {
-  color: #718494;
+.metricas-diario-error button {
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #1561cf;
+  font: inherit;
   font-size: 11px;
+  cursor: pointer;
 }
 @media (max-width: 900px) {
   .metricas-resumen,
   .metricas-tasas {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .metricas-diario {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 15px;
+  }
+  .metricas-diario-detalle {
+    padding: 14px 0 0;
+    border-top: 1px solid #e5ecef;
+    border-left: 0;
   }
 }
 @media (max-width: 640px) {
@@ -1330,6 +1477,9 @@
   }
   .metricas-seccion {
     padding: 18px;
+  }
+  .metricas-diario-encabezado {
+    flex-wrap: wrap;
   }
 }
 .dato-resumen {
@@ -2695,10 +2845,16 @@
   background: #eff9f2;
   color: #27765c;
 }
-.dialogo-baja-competidor .dialogo-tipo-icono {
+.dialogo-baja-competidor .dialogo-tipo-icono,
+.dialogo-baja-usuario .dialogo-tipo-icono {
   border-color: #efd7d3;
   background: #fff3f1;
   color: #a94c42;
+}
+.dialogo-reactivar-usuario .dialogo-tipo-icono {
+  border-color: #c6e5d5;
+  background: #eff9f2;
+  color: #27765c;
 }
 .dialogo-crear-cliente {
   width: 680px;
@@ -3353,30 +3509,186 @@
 .admin-tarjeta .boton-primario {
   justify-self: start;
 }
+.admin-seccion {
+  margin-top: 18px;
+  padding: 23px 27px;
+}
+.admin-seccion-cabecera h2 {
+  margin: 0 0 5px;
+  color: #1d3a50;
+  font-size: 19px;
+}
+.admin-seccion-cabecera p,
+.admin-seccion-cabecera small {
+  display: block;
+  margin: 0;
+  color: #667e90;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.admin-organizaciones {
+  max-height: 310px;
+  overflow-y: auto;
+  margin: 17px 0 0;
+  padding: 0;
+  border: 1px solid #e2eaf0;
+  border-radius: 7px;
+  list-style: none;
+}
+.admin-organizaciones li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 13px;
+  border-bottom: 1px solid #e8eef2;
+}
+.admin-organizaciones li:last-child {
+  border-bottom: 0;
+}
+.admin-organizaciones strong {
+  min-width: 0;
+  color: #24475c;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.admin-organizaciones .boton[aria-pressed='true'] {
+  border-color: #a6cdd3;
+  background: #edf8f8;
+  color: #137d8a;
+}
+.admin-consulta-otra {
+  margin: 16px 0;
+  color: #527084;
+  font-size: 12px;
+}
+.admin-consulta-otra summary {
+  cursor: pointer;
+}
+.admin-consulta-uuid {
+  margin-top: 11px;
+}
+.admin-consulta-uuid label {
+  display: block;
+  margin-bottom: 5px;
+  color: #667e90;
+  font-size: 11px;
+}
+.admin-consulta-uuid > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-consulta-uuid input {
+  width: min(100%, 375px);
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid #cddae4;
+  border-radius: 6px;
+  color: #24475c;
+  font: inherit;
+}
+.admin-lista-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0 11px;
+}
+.admin-lista-cabecera p {
+  margin: 0;
+  color: #667e90;
+  font-size: 12px;
+}
+.admin-lista-vacio {
+  margin: 15px 0 0;
+  padding: 18px;
+  border: 1px dashed #d7e3eb;
+  border-radius: 7px;
+  color: #667e90;
+  font-size: 13px;
+}
+.admin-lista-error {
+  display: grid;
+  justify-items: start;
+  gap: 9px;
+  margin-top: 14px;
+}
+.admin-tabla-contenedor {
+  overflow-x: auto;
+  border: 1px solid #e2eaf0;
+  border-radius: 7px;
+}
+.admin-tabla-usuarios {
+  width: 100%;
+  min-width: 690px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.admin-tabla-usuarios th,
+.admin-tabla-usuarios td {
+  padding: 11px 13px;
+  border-bottom: 1px solid #e9edf1;
+  text-align: left;
+  vertical-align: middle;
+}
+.admin-tabla-usuarios tbody tr:last-child th,
+.admin-tabla-usuarios tbody tr:last-child td {
+  border-bottom: 0;
+}
+.admin-tabla-usuarios thead th {
+  background: #f7fafc;
+  color: #607688;
+  font-size: 11px;
+}
+.admin-tabla-usuarios tbody th strong,
+.admin-tabla-usuarios tbody th small {
+  display: block;
+}
+.admin-tabla-usuarios tbody th strong {
+  color: #24475c;
+  font-size: 12px;
+}
+.admin-tabla-usuarios tbody th small {
+  margin-top: 3px;
+  color: #72889a;
+  font-size: 11px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.admin-tabla-usuarios td:last-child {
+  white-space: nowrap;
+}
+.admin-estado-usuario {
+  display: inline-block;
+  padding: 4px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.admin-estado-usuario.activo {
+  background: #eaf7ef;
+  color: #28734b;
+}
+.admin-estado-usuario.inactivo {
+  background: #edf1f3;
+  color: #697883;
+}
+.dialogo-estado-nombre small {
+  color: #667e90;
+  font-size: 12px;
+}
+.dialogo-baja-usuario .aviso,
+.dialogo-reactivar-usuario .aviso {
+  margin-bottom: 16px;
+}
 .perfil-nota {
   margin: 0;
   color: #667e90;
   font-size: 12px;
   line-height: 1.5;
 }
-.nota-disponibilidad {
-  display: flex;
-  align-items: start;
-  gap: 10px;
-  max-width: 650px;
-  margin-top: 21px;
-  color: #788b9c;
-}
-.nota-disponibilidad svg {
-  flex: none;
-  margin-top: 1px;
-}
-.nota-disponibilidad p {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.55;
-}
-
 @media (max-width: 1050px) {
   .gastos-ia-filtros {
     grid-template-columns: repeat(2, minmax(0, 1fr));

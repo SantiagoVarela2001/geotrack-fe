@@ -5,8 +5,8 @@ Estado documentado al 16 de octubre de 2026. Este documento describe la API impl
 ## Qué puede construir el frontend ahora
 
 - Inicio y cierre de sesión, renovación del acceso y consulta de la cuenta actual.
-- Para `SYSADMIN`: lectura de planes, alta y listado de organizaciones, alta de usuarios y gastos estimados de IA por organización. Todavía no hay listado de usuarios.
-- Para `PROPIETARIO` con `USUARIOS_CREAR`: alta de usuarios en su propia organización. Todas las cuentas pueden consultar y actualizar su perfil y cambiar su contraseña.
+- Para `SYSADMIN` con los permisos correspondientes: lectura de planes, alta y listado de organizaciones, alta, listado, baja y reactivación de usuarios, y gastos estimados de IA por organización.
+- Para `PROPIETARIO` con los permisos correspondientes: alta, listado, baja y reactivación de usuarios de su propia organización. Todas las cuentas pueden consultar y actualizar su perfil y cambiar su contraseña.
 - Para usuarios de organización: alta, lectura, archivo y reactivación de clientes monitoreados; alta, lectura y baja lógica de competidores; alta, lectura y cambio de nombre de temas; alta, lectura, aprobación y baja lógica de consultas.
 - Para usuarios de organización con CONSULTAS_CREAR: generación asistida de quince borradores por cliente y consulta de su proceso.
 - Para usuarios con `CONSULTAS_VER`: lectura de ejecuciones manuales y métricas GEO agregadas por cliente y período.
@@ -69,6 +69,9 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 | `GET /api/organizaciones` | — | `200 RespuestaOrganizacion[]` | Rol `SYSADMIN` + `ORGANIZACIONES_VER` |
 | `GET /api/organizaciones/gastos-ia?desde=AAAA-MM-DD&hasta=AAAA-MM-DD` | — | `200 DatosGastoIaOrganizacion[]` | Rol `SYSADMIN` + `GASTOS_IA_VER` |
 | `POST /api/organizaciones/{organizacionUuid}/usuarios` | `SolicitudCrearUsuario` | `201 RespuestaUsuario` | Rol `SYSADMIN` o `PROPIETARIO` + `USUARIOS_CREAR` |
+| `GET /api/organizaciones/{organizacionUuid}/usuarios` | — | `200 DatosUsuarioOrganizacion[]` | Rol `SYSADMIN` o `PROPIETARIO` + `USUARIOS_VER` |
+| `DELETE /api/organizaciones/{organizacionUuid}/usuarios/{usuarioUuid}` | — | `200 DatosUsuarioOrganizacion` | Rol `SYSADMIN` o `PROPIETARIO` + `USUARIOS_ELIMINAR` |
+| `PATCH /api/organizaciones/{organizacionUuid}/usuarios/{usuarioUuid}/reactivar` | — | `200 DatosUsuarioOrganizacion` | Rol `SYSADMIN` o `PROPIETARIO` + `USUARIOS_REACTIVAR` |
 | `GET /api/usuarios/yo` | — | `200 DatosPerfil` | JWT |
 | `PATCH /api/usuarios/yo` | `SolicitudActualizarPerfil` | `200 DatosPerfil` actualizado | JWT |
 | `PUT /api/usuarios/yo/clave` | `SolicitudCambiarClave` | `204` | JWT |
@@ -156,6 +159,12 @@ El primer usuario recibe `PROPIETARIO` automáticamente. Desde el segundo, `rol`
 ```
 
 El correo debe tener formato de email y es único en toda la aplicación; uno repetido devuelve `409`. El primer usuario con un rol distinto de `PROPIETARIO` y los siguientes sin un rol válido devuelven `400`. Una organización inexistente o inactiva devuelve `404`. No enviar organización, usuario creador ni datos de auditoría en los bodies cuando provienen de la ruta o del JWT.
+
+`GET /api/organizaciones/{organizacionUuid}/usuarios` devuelve cuentas activas e inactivas, con las activas primero y ordenadas por nombre dentro de cada grupo. `SYSADMIN` puede consultar cualquier organización; `PROPIETARIO` solo la propia. `MIEMBRO` recibe `403` y una organización ajena al propietario devuelve `404`. Cada fila tiene `uuid`, `nombre`, `correoElectronico`, `roles` (array), `activo` y `fechaEliminacion` (fecha o `null`).
+
+`DELETE /api/organizaciones/{organizacionUuid}/usuarios/{usuarioUuid}` no recibe body y devuelve la fila actualizada con `activo: false` y `fechaEliminacion`. La baja es lógica: revoca las sesiones y el acceso de la cuenta, pero conserva su correo reservado. La cuenta debe estar activa y pertenecer a la organización de la ruta; si no, responde `404`. La baja de la cuenta propia o del último propietario activo responde `409` con `detail` legible. La respuesta permite sustituir la fila local sin volver a consultar el listado.
+
+`PATCH /api/organizaciones/{organizacionUuid}/usuarios/{usuarioUuid}/reactivar` no recibe body y devuelve la fila con `activo: true`. Conserva UUID, correo, contraseña, roles, permisos y `fechaEliminacion` como dato histórico de la última baja. El estado actual se determina con `activo`. La persona puede volver a ingresar con su contraseña habitual, pero las sesiones revocadas siguen cerradas. Una cuenta ya activa responde `409`; una cuenta ajena, inexistente o de una organización inactiva responde `404`. Requiere `USUARIOS_REACTIVAR`, además del rol `SYSADMIN` o `PROPIETARIO` de la organización. La respuesta permite actualizar la fila local sin otra consulta.
 
 ### Mi perfil y contraseña
 
