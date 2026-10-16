@@ -14,6 +14,7 @@ export function VistaConsultasAgrupadas({
   cambioTipoBloqueado,
   alSolicitarCambioTipo,
   alAbrirDetalle,
+  alAbrirEjecucionHoy,
   puedeEjecutar,
   alEjecutar,
   alAlternar,
@@ -30,6 +31,7 @@ export function VistaConsultasAgrupadas({
   cambioTipoBloqueado: boolean
   alSolicitarCambioTipo: (consulta: DatosConsulta) => void
   alAbrirDetalle: (consulta: DatosConsulta, temaUuid: string) => void
+  alAbrirEjecucionHoy: (consulta: DatosConsulta, temaUuid: string, ejecucionUuid: string) => void
   puedeEjecutar: boolean
   alEjecutar: (consulta: DatosConsulta, temaUuid: string) => void
   alAlternar: (uuid: string) => void
@@ -92,6 +94,9 @@ export function VistaConsultasAgrupadas({
                       deshabilitada={seleccionBloqueada}
                       alAlternar={puedeSeleccionar ? () => alAlternar(consulta.uuid) : undefined}
                       alAbrirDetalle={() => alAbrirDetalle(consulta, tema.uuid)}
+                      alVerEjecucionHoy={(ejecucionUuid) =>
+                        alAbrirEjecucionHoy(consulta, tema.uuid, ejecucionUuid)
+                      }
                       alEjecutar={
                         puedeEjecutar && consulta.estadoConsulta === 'APROBADA'
                           ? () => alEjecutar(consulta, tema.uuid)

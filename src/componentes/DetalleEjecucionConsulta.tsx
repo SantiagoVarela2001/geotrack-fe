@@ -18,6 +18,7 @@ const nombresEstado: Record<DatosEjecucionConsulta['estado'], string> = {
   PROCESANDO: 'Procesando',
   FINALIZADO: 'Finalizada',
   FALLIDO: 'Fallida',
+  CANCELADA: 'Cancelada',
 }
 
 /** Da una explicación útil para los estados HTTP específicos de la ejecución. */
@@ -66,16 +67,22 @@ async function cargarDatosPagina(
   temaUuid: string,
   consultaUuid: string,
   puedeVerCliente: boolean,
+  ejecucionInicialUuid?: string,
 ) {
-  const [ultima, cliente, consulta] = await Promise.allSettled([
-    api.ejecuciones.obtenerUltima(clienteUuid, consultaUuid),
+  const [intento, cliente, consulta] = await Promise.allSettled([
+    ejecucionInicialUuid
+      ? api.ejecuciones.obtener(clienteUuid, ejecucionInicialUuid)
+      : api.ejecuciones.obtenerUltima(clienteUuid, consultaUuid),
     puedeVerCliente ? api.clientes.obtener(clienteUuid) : Promise.resolve(null),
     api.consultas.obtener(clienteUuid, temaUuid, consultaUuid),
   ])
-  if (ultima.status === 'rejected') throw ultima.reason
-  if (consulta.status === 'rejected' && !ultima.value) throw consulta.reason
+  if (intento.status === 'rejected') throw intento.reason
+  if (ejecucionInicialUuid && intento.value?.consultaUuid !== consultaUuid) {
+    throw new ErrorApi(404, 'La ejecución no corresponde a esta consulta.')
+  }
+  if (consulta.status === 'rejected' && !intento.value) throw consulta.reason
   return {
-    ejecucion: ultima.value,
+    ejecucion: intento.value,
     cliente: cliente.status === 'fulfilled' ? cliente.value : null,
     consulta: consulta.status === 'fulfilled' ? consulta.value : null,
     errorContexto:
@@ -100,6 +107,7 @@ export function DetalleEjecucionConsulta({
   consultaUuid,
   cuenta,
   iniciarAlAbrir = false,
+  ejecucionInicialUuid,
   alVolver,
 }: {
   clienteUuid: string
@@ -107,6 +115,7 @@ export function DetalleEjecucionConsulta({
   consultaUuid: string
   cuenta: DatosCuenta
   iniciarAlAbrir?: boolean
+  ejecucionInicialUuid?: string
   alVolver: () => void
 }) {
   const abierto = useRef(true)
@@ -121,7 +130,7 @@ export function DetalleEjecucionConsulta({
   const [cargaFallida, cambiarCargaFallida] = useState(false)
   const [errorContexto, cambiarErrorContexto] = useState(false)
   const [error, cambiarError] = useState('')
-  const puedeEjecutar = puedeIniciarConsulta(cuenta, cliente, consulta)
+  const puedeEjecutar = !ejecucionInicialUuid && puedeIniciarConsulta(cuenta, cliente, consulta)
   const enCurso = ejecucion?.estado === 'PENDIENTE' || ejecucion?.estado === 'PROCESANDO'
   const normalizacionEnCurso =
     ejecucion?.estado === 'FINALIZADO' &&
@@ -141,7 +150,7 @@ export function DetalleEjecucionConsulta({
     }
   }, [])
 
-  /** Al abrir el detalle recupera el último intento desde el servidor. */
+  /** Una ruta con UUID muestra esa ejecución exacta; la ruta habitual muestra la última. */
   useEffect(() => {
     let vigente = true
     cargarDatosPagina(
@@ -149,6 +158,7 @@ export function DetalleEjecucionConsulta({
       temaUuid,
       consultaUuid,
       tienePermiso(cuenta.permisos, 'CLIENTES_VER'),
+      ejecucionInicialUuid,
     )
       .then((datos) => {
         if (vigente) {
@@ -180,7 +190,7 @@ export function DetalleEjecucionConsulta({
     return () => {
       vigente = false
     }
-  }, [clienteUuid, temaUuid, consultaUuid, cuenta, iniciarAlAbrir])
+  }, [clienteUuid, temaUuid, consultaUuid, cuenta, iniciarAlAbrir, ejecucionInicialUuid])
 
   /** El acceso directo primero recupera el intento actual y evita duplicar uno todavía activo. */
   useEffect(() => {
@@ -285,6 +295,7 @@ export function DetalleEjecucionConsulta({
         temaUuid,
         consultaUuid,
         tienePermiso(cuenta.permisos, 'CLIENTES_VER'),
+        ejecucionInicialUuid,
       )
       if (!abierto.current) return
       cambiarEjecucion(datos.ejecucion)
@@ -341,7 +352,7 @@ export function DetalleEjecucionConsulta({
         <div>
           <span className="sobrelinea">EJECUCIÓN MANUAL</span>
           <h1 id="pagina-ejecucion-titulo">Resultado de la consulta</h1>
-          <p>Leé la respuesta, el análisis de marca y las fuentes del último intento.</p>
+          <p>Leé la respuesta, el análisis de marca y las fuentes {ejecucionInicialUuid ? 'de esta ejecución' : 'del último intento'}.</p>
         </div>
       </header>
 
@@ -398,7 +409,7 @@ export function DetalleEjecucionConsulta({
 
         {cargandoUltima ? (
           <div className="cargando-bloque" role="status">
-            Recuperando última ejecución…
+            {ejecucionInicialUuid ? 'Recuperando ejecución…' : 'Recuperando última ejecución…'}
           </div>
         ) : (
           <>
@@ -456,6 +467,9 @@ export function DetalleEjecucionConsulta({
               <Aviso>
                 {ejecucion.mensaje || 'La ejecución no pudo completarse. Podés volver a intentarlo.'}
               </Aviso>
+            )}
+            {ejecucion?.estado === 'CANCELADA' && (
+              <Aviso>{ejecucion.mensaje || 'La ejecución fue cancelada.'}</Aviso>
             )}
 
             {ejecucion?.resultadoNormalizado && (
@@ -541,6 +555,9 @@ export function DetalleEjecucionConsulta({
                     {ejecucion.mensajeNormalizacion ||
                       'No se pudo completar el análisis de marca. La respuesta original sigue disponible.'}
                   </Aviso>
+                )}
+                {ejecucion.estadoNormalizacion === 'CANCELADA' && (
+                  <Aviso tipo="informacion">El análisis de marca fue cancelado. La respuesta original sigue disponible.</Aviso>
                 )}
                 {ejecucion.estadoNormalizacion === 'NO_REALIZADA' && (
                   <p className="ejecucion-vacio">Esta ejecución no incluye análisis de marca.</p>

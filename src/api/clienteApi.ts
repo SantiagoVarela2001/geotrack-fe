@@ -1,4 +1,5 @@
 import type {
+  DatosAnalisisSemanal,
   DatosCliente,
   DatosConsulta,
   DatosCuenta,
@@ -9,6 +10,7 @@ import type {
   DatosPlan,
   DatosTema,
   DatosTemaConConsultas,
+  Pagina,
   RespuestaAcceso,
   RespuestaUsuario,
   SolicitudCompetidor,
@@ -208,6 +210,28 @@ export const api = {
     obtener: (clienteUuid: string, desde: string, hasta: string) =>
       solicitar<DatosMetricasCliente>(
         `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/metricas?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`,
+      ),
+  },
+  analisisSemanales: {
+    iniciar: (clienteUuid: string) =>
+      solicitar<DatosAnalisisSemanal>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/analisis-semanales`,
+        { method: 'POST' },
+      ),
+    /** Un 204 indica que el cliente todavía no tiene análisis semanales. */
+    async obtenerUltimo(clienteUuid: string): Promise<DatosAnalisisSemanal | null> {
+      const datos = await solicitar<DatosAnalisisSemanal | undefined>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/analisis-semanales/ultimo`,
+      )
+      return datos ?? null
+    },
+    obtener: (clienteUuid: string, analisisUuid: string) =>
+      solicitar<DatosAnalisisSemanal>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/analisis-semanales/${encodeURIComponent(analisisUuid)}`,
+      ),
+    listar: (clienteUuid: string, pagina: number) =>
+      solicitar<Pagina<DatosAnalisisSemanal>>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/analisis-semanales?pagina=${pagina}`,
       ),
   },
   temas: {

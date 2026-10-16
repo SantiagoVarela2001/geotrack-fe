@@ -3,6 +3,7 @@ import { api } from '../api/clienteApi'
 import type {
   DatosCliente,
   DatosConsulta,
+  DatosConsultaConEjecucionHoy,
   DatosCuenta,
   DatosGeneracionConsultas,
   DatosTema,
@@ -34,13 +35,22 @@ export function DetalleCliente({
   temaInicialUuid = '',
   alAbrirEjecucion,
   alVerMetricas,
+  alVerAnalisis,
+  alCrearAnalisis,
   alVolver,
 }: {
   clienteUuid: string
   cuenta: DatosCuenta
   temaInicialUuid?: string
-  alAbrirEjecucion: (consulta: DatosConsulta, temaUuid: string, iniciarAlAbrir: boolean) => void
+  alAbrirEjecucion: (
+    consulta: DatosConsulta,
+    temaUuid: string,
+    iniciarAlAbrir: boolean,
+    ejecucionUuid?: string,
+  ) => void
   alVerMetricas: () => void
+  alVerAnalisis: () => void
+  alCrearAnalisis: () => void
   alVolver: () => void
 }) {
   const vistaGeneralInicial =
@@ -51,7 +61,7 @@ export function DetalleCliente({
   const [temas, cambiarTemas] = useState<DatosTema[]>([])
   const [temaUuid, cambiarTemaUuid] = useState(temaInicialUuid)
   const temaUuidActual = useRef(temaInicialUuid)
-  const [consultas, cambiarConsultas] = useState<DatosConsulta[]>([])
+  const [consultas, cambiarConsultas] = useState<(DatosConsulta | DatosConsultaConEjecucionHoy)[]>([])
   const [vistaAgrupada, cambiarVistaAgrupada] = useState(vistaGeneralInicial)
   const [temasDesplegados, cambiarTemasDesplegados] = useState(
     Boolean(temaInicialUuid) || !vistaGeneralInicial,
@@ -99,10 +109,12 @@ export function DetalleCliente({
 
   const puedeVerTemas = tienePermiso(cuenta.permisos, 'TEMAS_VER')
   const puedeVerConsultas = tienePermiso(cuenta.permisos, 'CONSULTAS_VER')
+  const puedeVerAnalisis = tienePermiso(cuenta.permisos, 'ANALISIS_SEMANALES_VER')
   const puedeCambiarEstadoCliente =
     cuenta.tipoCuenta === 'ORGANIZACION' &&
     tienePermiso(cuenta.permisos, 'CLIENTES_CAMBIAR_ESTADO')
   const activo = cliente?.estado === 'ACTIVO' && cuenta.tipoCuenta === 'ORGANIZACION'
+  const puedeCrearAnalisis = activo && tienePermiso(cuenta.permisos, 'ANALISIS_SEMANALES_CREAR')
   const puedeCrearCompetidor = activo && tienePermiso(cuenta.permisos, 'COMPETIDORES_CREAR')
   const puedeEliminarCompetidor = activo && tienePermiso(cuenta.permisos, 'COMPETIDORES_ELIMINAR')
   const puedeCrearTema = activo && tienePermiso(cuenta.permisos, 'TEMAS_CREAR')
@@ -136,6 +148,10 @@ export function DetalleCliente({
   const consultasAEnviar = consultasElegidas.filter(
     (consulta) => consulta.estadoConsulta === 'APROBADA',
   )
+  const cantidadConEjecucionHoy = consultasElegidas.filter(
+    (consulta) => consulta.estadoConsulta === 'APROBADA' &&
+      'ejecucionHoy' in consulta && consulta.ejecucionHoy !== null,
+  ).length
   const todasBorrador =
     consultasElegidas.length > 0 &&
     consultasElegidas.length === seleccionadas.length &&
@@ -270,6 +286,8 @@ export function DetalleCliente({
       cambiarEnviandoLote(false)
       cambiarGuardando(false)
       cambiarSeleccionadas([])
+      if (vistaAgrupada) cambiarRevisionAgrupados((actual) => actual + 1)
+      else cambiarRevisionConsultas((actual) => actual + 1)
     }
   }
 
@@ -335,12 +353,12 @@ export function DetalleCliente({
   }, [clienteCargadoUuid, clienteUuid, puedeVerTemas, revisionTemas, vistaGeneralInicial])
 
   useEffect(() => {
-    if (!temaUuid || !puedeVerConsultas || vistaAgrupada) return
+    if (!temaUuid || !puedeVerTemas || !puedeVerConsultas || vistaAgrupada) return
     let vigente = true
     api.consultas
-      .listar(clienteUuid, temaUuid)
+      .listarPorTema(clienteUuid)
       .then((datos) => {
-        if (vigente) cambiarConsultas(datos)
+        if (vigente) cambiarConsultas(datos.find((tema) => tema.uuid === temaUuid)?.consultas ?? [])
       })
       .catch((causa) => {
         if (vigente) cambiarErrorConsultas(obtenerMensajeError(causa))
@@ -351,7 +369,7 @@ export function DetalleCliente({
     return () => {
       vigente = false
     }
-  }, [clienteUuid, temaUuid, puedeVerConsultas, revisionConsultas, vistaAgrupada])
+  }, [clienteUuid, temaUuid, puedeVerTemas, puedeVerConsultas, revisionConsultas, vistaAgrupada])
 
   /** Carga todos los temas y sus consultas solo mientras la vista general está abierta. */
   useEffect(() => {
@@ -369,6 +387,52 @@ export function DetalleCliente({
       vigente = false
     }
   }, [clienteCargadoUuid, clienteUuid, vistaAgrupada, puedeVerTemas, puedeVerConsultas, revisionAgrupados])
+
+  const hayEjecucionesAbiertasHoy = temasAgrupados?.some((tema) => tema.consultas.some((consulta) => {
+    const hoy = consulta.ejecucionHoy
+    return hoy && (
+      hoy.estadoEjecucion === 'PENDIENTE' || hoy.estadoEjecucion === 'PROCESANDO' ||
+      (hoy.estadoEjecucion === 'FINALIZADO' &&
+        (hoy.estadoNormalizacion === 'PENDIENTE' || hoy.estadoNormalizacion === 'PROCESANDO'))
+    )
+  }))
+
+  /** Actualiza solo los indicadores que aún pueden pasar de estado. */
+  useEffect(() => {
+    if (!vistaAgrupada || !hayEjecucionesAbiertasHoy || errorAgrupados) return
+    const temporizador = window.setTimeout(() => cambiarRevisionAgrupados((actual) => actual + 1), 5000)
+    return () => window.clearTimeout(temporizador)
+  }, [vistaAgrupada, temasAgrupados, hayEjecucionesAbiertasHoy, errorAgrupados])
+
+  const hayEjecucionesAbiertasEnTema = consultas.some((consulta) => {
+    if (!('ejecucionHoy' in consulta) || !consulta.ejecucionHoy) return false
+    const hoy = consulta.ejecucionHoy
+    return hoy.estadoEjecucion === 'PENDIENTE' || hoy.estadoEjecucion === 'PROCESANDO' ||
+      (hoy.estadoEjecucion === 'FINALIZADO' &&
+        (hoy.estadoNormalizacion === 'PENDIENTE' || hoy.estadoNormalizacion === 'PROCESANDO'))
+  })
+
+  useEffect(() => {
+    if (vistaAgrupada || !temaUuid || !hayEjecucionesAbiertasEnTema || errorConsultas) return
+    const temporizador = window.setTimeout(() => cambiarRevisionConsultas((actual) => actual + 1), 5000)
+    return () => window.clearTimeout(temporizador)
+  }, [vistaAgrupada, temaUuid, consultas, hayEjecucionesAbiertasEnTema, errorConsultas])
+
+  useEffect(() => {
+    if (!puedeVerTemas || !puedeVerConsultas) return
+    function actualizarAlVolver() {
+      if (document.visibilityState !== 'visible') return
+      if (vistaAgrupada) {
+        cambiarErrorAgrupados('')
+        cambiarRevisionAgrupados((actual) => actual + 1)
+      } else if (temaUuid) {
+        cambiarErrorConsultas('')
+        cambiarRevisionConsultas((actual) => actual + 1)
+      }
+    }
+    document.addEventListener('visibilitychange', actualizarAlVolver)
+    return () => document.removeEventListener('visibilitychange', actualizarAlVolver)
+  }, [vistaAgrupada, temaUuid, puedeVerTemas, puedeVerConsultas])
 
   /** Consulta un solo proceso a la vez y detiene el intervalo al terminar o salir de la página. */
   useEffect(() => {
@@ -565,13 +629,16 @@ export function DetalleCliente({
       const aprobadas = await api.consultas.aprobar(clienteUuid, seleccionadas)
       const porUuid = new Map(aprobadas.map((consulta) => [consulta.uuid, consulta]))
       cambiarConsultas((actuales) =>
-        actuales.map((consulta) => porUuid.get(consulta.uuid) ?? consulta),
+        actuales.map((consulta) => ({ ...consulta, ...porUuid.get(consulta.uuid) })),
       )
       cambiarTemasAgrupados(
         (actuales) =>
           actuales?.map((tema) => ({
             ...tema,
-            consultas: tema.consultas.map((consulta) => porUuid.get(consulta.uuid) ?? consulta),
+            consultas: tema.consultas.map((consulta) => ({
+              ...consulta,
+              ...porUuid.get(consulta.uuid),
+            })),
           })) ?? null,
       )
       cambiarSeleccionadas([])
@@ -654,14 +721,14 @@ export function DetalleCliente({
     try {
       const actualizada = await api.consultas.cambiarTipo(clienteUuid, consulta.uuid, nuevoTipo)
       cambiarConsultas((actuales) =>
-        actuales.map((item) => (item.uuid === actualizada.uuid ? actualizada : item)),
+        actuales.map((item) => (item.uuid === actualizada.uuid ? { ...item, ...actualizada } : item)),
       )
       cambiarTemasAgrupados(
         (actuales) =>
           actuales?.map((tema) => ({
             ...tema,
             consultas: tema.consultas.map((item) =>
-              item.uuid === actualizada.uuid ? actualizada : item,
+              item.uuid === actualizada.uuid ? { ...item, ...actualizada } : item,
             ),
           })) ?? null,
       )
@@ -905,6 +972,28 @@ export function DetalleCliente({
               alGenerar={iniciarGeneracion}
             />
           )}
+          {(puedeVerAnalisis || puedeCrearAnalisis) && (
+            <section className="tarjeta analisis-acceso" aria-labelledby="analisis-acceso-titulo">
+              <span className="analisis-acceso-icono"><Icono nombre="documento" tamano={23} /></span>
+              <div className="analisis-acceso-texto">
+                <span className="sobrelinea">INFORME DE LA SEMANA</span>
+                <h2 id="analisis-acceso-titulo">Análisis semanal</h2>
+                <p>Revisá hallazgos y recomendaciones con el detalle de las ejecuciones analizadas.</p>
+              </div>
+              <div className="analisis-acceso-acciones">
+                {puedeVerAnalisis && (
+                  <button type="button" className="boton boton-secundario" onClick={alVerAnalisis}>
+                    <Icono nombre="ver" tamano={17} /> Ver último análisis
+                  </button>
+                )}
+                {puedeCrearAnalisis && (
+                  <button type="button" className="boton boton-primario" onClick={alCrearAnalisis}>
+                    <Icono nombre="mas" tamano={17} /> Crear análisis
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
           <div className="trabajo-grilla">
             <section className="tarjeta temas-panel">
               <div className="seccion-cabecera">
@@ -1067,6 +1156,9 @@ export function DetalleCliente({
                     cambioTipoBloqueado={guardando || cambiandoTipo || confirmarBaja}
                     alSolicitarCambioTipo={solicitarCambioTipo}
                     alAbrirDetalle={abrirDetalleConsulta}
+                    alAbrirEjecucionHoy={(consulta, temaUuid, ejecucionUuid) =>
+                      alAbrirEjecucion(consulta, temaUuid, false, ejecucionUuid)
+                    }
                     puedeEjecutar={puedeEjecutar}
                     alEjecutar={ejecutarConsulta}
                     alAlternar={alternarSeleccion}
@@ -1087,6 +1179,7 @@ export function DetalleCliente({
                           puedeDarDeBaja={puedeDarDeBaja}
                           puedeEjecutar={puedeEjecutar}
                           cantidadEjecutables={consultasAEnviar.length}
+                          cantidadConEjecucionHoy={cantidadConEjecucionHoy}
                           guardando={guardando || cambiandoTipo}
                           confirmarBaja={confirmarBaja}
                           etiquetaBaja={etiquetaBajaAgrupada}
@@ -1215,6 +1308,7 @@ export function DetalleCliente({
                               puedeDarDeBaja={puedeDarDeBaja}
                               puedeEjecutar={puedeEjecutar}
                               cantidadEjecutables={consultasAEnviar.length}
+                              cantidadConEjecucionHoy={cantidadConEjecucionHoy}
                               guardando={guardando || cambiandoTipo}
                               confirmarBaja={confirmarBaja}
                               etiquetaBaja="Dar de baja"
@@ -1241,6 +1335,9 @@ export function DetalleCliente({
                                 }
                                 cambioTipoBloqueado={guardando || cambiandoTipo || confirmarBaja}
                                 alAbrirDetalle={() => abrirDetalleConsulta(consulta, temaUuid)}
+                                alVerEjecucionHoy={(ejecucionUuid) =>
+                                  alAbrirEjecucion(consulta, temaUuid, false, ejecucionUuid)
+                                }
                                 alEjecutar={
                                   puedeEjecutar && consulta.estadoConsulta === 'APROBADA'
                                     ? () => ejecutarConsulta(consulta, temaUuid)

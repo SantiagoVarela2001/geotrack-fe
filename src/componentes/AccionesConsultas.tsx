@@ -9,6 +9,7 @@ export function AccionesConsultas({
   puedeDarDeBaja,
   puedeEjecutar,
   cantidadEjecutables,
+  cantidadConEjecucionHoy = 0,
   guardando,
   confirmarBaja,
   etiquetaBaja,
@@ -27,6 +28,7 @@ export function AccionesConsultas({
   puedeDarDeBaja: boolean
   puedeEjecutar: boolean
   cantidadEjecutables: number
+  cantidadConEjecucionHoy?: number
   guardando: boolean
   confirmarBaja: boolean
   etiquetaBaja: 'Rechazar' | 'Dar de baja'
@@ -93,6 +95,11 @@ export function AccionesConsultas({
       {puedeEjecutar && cantidadEjecutables > 0 && cantidadEjecutables < cantidadSeleccionadas && (
         <p className="consultas-ejecucion-nota">
           Se enviarán solo las {cantidadEjecutables} consultas aprobadas seleccionadas. Los borradores no se ejecutarán.
+        </p>
+      )}
+      {puedeEjecutar && cantidadConEjecucionHoy > 0 && (
+        <p className="consultas-ejecucion-nota">
+          {cantidadConEjecucionHoy} {cantidadConEjecucionHoy === 1 ? 'consulta seleccionada ya tiene' : 'consultas seleccionadas ya tienen'} una ejecución hoy. Revisá los resultados antes de solicitar otra ejecución.
         </p>
       )}
       {confirmarBaja && (

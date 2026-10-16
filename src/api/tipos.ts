@@ -84,8 +84,19 @@ export interface DatosConsulta {
   prioridad: 'ALTA' | 'MEDIA' | 'BAJA'
 }
 
+export interface DatosEjecucionHoy {
+  uuid: string
+  estadoEjecucion: 'PENDIENTE' | 'PROCESANDO' | 'FINALIZADO' | 'FALLIDO' | 'CANCELADA'
+  estadoNormalizacion:
+    | 'NO_REALIZADA' | 'PENDIENTE' | 'PROCESANDO' | 'FINALIZADA' | 'FALLIDA' | 'CANCELADA'
+}
+
+export interface DatosConsultaConEjecucionHoy extends DatosConsulta {
+  ejecucionHoy: DatosEjecucionHoy | null
+}
+
 export interface DatosTemaConConsultas extends DatosTema {
-  consultas: DatosConsulta[]
+  consultas: DatosConsultaConEjecucionHoy[]
 }
 
 export interface FuenteCitadaIA {
@@ -115,7 +126,7 @@ export interface DatosEjecucionConsulta {
   uuid: string
   consultaUuid: string
   clienteUuid: string
-  estado: 'PENDIENTE' | 'PROCESANDO' | 'FINALIZADO' | 'FALLIDO'
+  estado: 'PENDIENTE' | 'PROCESANDO' | 'FINALIZADO' | 'FALLIDO' | 'CANCELADA'
   textoConsulta: string
   tipoConsulta: DatosConsulta['tipoConsulta']
   nombreTema: string
@@ -132,7 +143,7 @@ export interface DatosEjecucionConsulta {
   tokensSalida?: number | null
   costoEstimadoUsd?: number | null
   citas: FuenteCitadaIA[]
-  estadoNormalizacion: 'NO_REALIZADA' | 'PENDIENTE' | 'PROCESANDO' | 'FINALIZADA' | 'FALLIDA'
+  estadoNormalizacion: 'NO_REALIZADA' | 'PENDIENTE' | 'PROCESANDO' | 'FINALIZADA' | 'FALLIDA' | 'CANCELADA'
   mensajeNormalizacion: string | null
   resultadoNormalizado: ResultadoNormalizadoConsulta | null
 }
@@ -176,6 +187,35 @@ export interface DatosMetricasCliente {
   tasaCitasSitioCliente: number | null
   serieDiaria: DatosMetricasDia[]
   competidores: DatosMetricasCompetidor[]
+}
+
+export interface DatosAnalisisSemanal {
+  uuid: string
+  clienteUuid: string
+  desde: string
+  hasta: string
+  estado: 'PENDIENTE' | 'PROCESANDO' | 'FINALIZADO' | 'FALLIDO' | 'CANCELADO'
+  fechaInicio: string | null
+  fechaFin: string | null
+  intentos: number
+  mensaje: string | null
+  informe: {
+    resumen: string
+    hallazgos: { descripcion: string; ejecuciones: string[] }[]
+    recomendaciones: {
+      titulo: string
+      accion: string
+      prioridad: 'ALTA' | 'MEDIA' | 'BAJA'
+      ejecuciones: string[]
+    }[]
+  } | null
+}
+
+export interface Pagina<T> {
+  content: T[]
+  number: number
+  totalPages: number
+  totalElements: number
 }
 
 export type SolicitudCrearConsulta = Pick<DatosConsulta, 'texto' | 'tipoConsulta' | 'prioridad'>

@@ -1,6 +1,6 @@
 # Contrato para el frontend
 
-Estado documentado al 14 de octubre de 2026. Este documento describe la API implementada y los contratos acordados para los cambios de estado y la gestión de competidores. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
+Estado documentado al 15 de octubre de 2026. Este documento describe la API implementada y los contratos acordados para los cambios de estado, la gestión de competidores y el análisis semanal manual. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
 
 ## Qué puede construir el frontend ahora
 
@@ -9,6 +9,7 @@ Estado documentado al 14 de octubre de 2026. Este documento describe la API impl
 - Para usuarios de organización: alta, lectura, archivo y reactivación de clientes monitoreados; alta, lectura y baja lógica de competidores; alta, lectura y cambio de nombre de temas; alta, lectura, aprobación y baja lógica de consultas.
 - Para usuarios de organización con CONSULTAS_CREAR: generación asistida de quince borradores por cliente y consulta de su proceso.
 - Para usuarios con `CONSULTAS_VER`: lectura de ejecuciones manuales y métricas GEO agregadas por cliente y período.
+- Para usuarios con `ANALISIS_SEMANALES_VER`: lectura del último análisis semanal, de cada proceso y del historial paginado. Los usuarios de organización con `ANALISIS_SEMANALES_CREAR` pueden iniciar un análisis manual.
 - Para `SYSADMIN`: lectura global de clientes, temas y consultas. Sus permisos actuales no habilitan escribir esos recursos.
 
 El backend distingue cuentas `PLATAFORMA` (SYSADMIN, sin organización) y `ORGANIZACION` (una sola organización). Los roles iniciales son `SYSADMIN`, `PROPIETARIO` y `MIEMBRO`. Un usuario también puede recibir permisos directamente. Para mostrar u ocultar acciones, consultar `GET /api/autenticacion/actual` y usar su array `permisos`; la API vuelve a comprobar permisos y pertenencia en cada petición.
@@ -89,6 +90,10 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 | `GET /api/clientes-monitoreados/{clienteUuid}/ejecuciones/{ejecucionUuid}` | — | `200 DatosEjecucionConsulta` | `CONSULTAS_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}/ejecuciones/ultima` | — | `200 DatosEjecucionConsulta` o `204` | `CONSULTAS_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/metricas?desde=AAAA-MM-DD&hasta=AAAA-MM-DD` | — | `200 DatosMetricasCliente` | `CONSULTAS_VER` |
+| `POST /api/clientes-monitoreados/{clienteUuid}/analisis-semanales` | — | `202 DatosAnalisisSemanal` | `ANALISIS_SEMANALES_CREAR` |
+| `GET /api/clientes-monitoreados/{clienteUuid}/analisis-semanales/ultimo` | — | `200 DatosAnalisisSemanal` o `204` | `ANALISIS_SEMANALES_VER` |
+| `GET /api/clientes-monitoreados/{clienteUuid}/analisis-semanales/{analisisUuid}` | — | `200 DatosAnalisisSemanal` | `ANALISIS_SEMANALES_VER` |
+| `GET /api/clientes-monitoreados/{clienteUuid}/analisis-semanales?pagina=0` | — | `200 Page<DatosAnalisisSemanal>` | `ANALISIS_SEMANALES_VER` |
 
 `GET /actuator/health` es público y devuelve el estado técnico de la aplicación; no es una función del producto.
 
@@ -240,7 +245,7 @@ El nombre es obligatorio y admite hasta 200 caracteres. No puede haber dos temas
 
 ### Vista agrupada por tema
 
-`GET /api/clientes-monitoreados/{clienteUuid}/consultas/por-tema` devuelve todos los temas activos del cliente y sus consultas activas en una sola respuesta. Incluye los temas sin consultas con `consultas: []`; si el cliente no tiene temas, devuelve `[]`. Los temas se ordenan por nombre y las consultas de cada tema, desde la más reciente. Cada consulta conserva el formato de `DatosConsulta`:
+`GET /api/clientes-monitoreados/{clienteUuid}/consultas/por-tema` devuelve todos los temas activos del cliente y sus consultas activas en una sola respuesta. Incluye los temas sin consultas con `consultas: []`; si el cliente no tiene temas, devuelve `[]`. Los temas se ordenan por nombre y las consultas de cada tema, desde la más reciente. Cada consulta usa `DatosConsultaConEjecucionHoy`: conserva los campos de `DatosConsulta` y agrega `ejecucionHoy`:
 
 ```json
 [
@@ -256,7 +261,12 @@ El nombre es obligatorio y admite hasta 200 caracteres. No puede haber dos temas
         "texto": "¿Qué taller me conviene para revisar los frenos?",
         "tipoConsulta": "REFERENCIA",
         "estadoConsulta": "BORRADOR",
-        "prioridad": "ALTA"
+        "prioridad": "ALTA",
+        "ejecucionHoy": {
+          "uuid": "88888888-8888-4888-8888-888888888888",
+          "estadoEjecucion": "FINALIZADO",
+          "estadoNormalizacion": "FINALIZADA"
+        }
       }
     ]
   },
@@ -270,6 +280,8 @@ El nombre es obligatorio y admite hasta 200 caracteres. No puede haber dos temas
 ```
 
 Requiere los dos permisos de lectura, `TEMAS_VER` y `CONSULTAS_VER`. Una cuenta de organización solo puede ver sus clientes; SYSADMIN puede leerlos globalmente. Un cliente ajeno o inexistente devuelve `404`. Los clientes archivados siguen disponibles para lectura; los temas y consultas dados de baja no aparecen.
+
+`ejecucionHoy` es `null` si la consulta no tiene una ejecución registrada para el día actual en `America/Argentina/Buenos_Aires`. Si existe, incluye su UUID y ambos estados, aunque esté pendiente o haya fallado. Mostrar «Analizada hoy» solo cuando `estadoEjecucion` es `FINALIZADO` y `estadoNormalizacion` es `FINALIZADA`. El UUID permite consultar el detalle exacto de la ejecución.
 
 ### Alta
 
@@ -405,9 +417,9 @@ Ejemplo de una ejecución con normalización terminada para un usuario de organi
 
 Los tres endpoints de ejecución usan el mismo DTO. Para usuarios sin rol activo `SYSADMIN`, la API **omite** `tokensEntrada`, `tokensSalida` y `costoEstimadoUsd`; no llegan como `null`. SYSADMIN recibe esos campos cuando existen. `costoEstimadoUsd` refleja solo la ejecución original, no el costo adicional de normalización guardado en `consumos_ia`.
 
-`estado` puede ser `PENDIENTE`, `PROCESANDO`, `FINALIZADO` o `FALLIDO`. `estadoNormalizacion` puede ser `NO_REALIZADA`, `PENDIENTE`, `PROCESANDO`, `FINALIZADA` o `FALLIDA`. Mientras la segunda llamada esté pendiente o procesando, la respuesta original puede estar `FINALIZADO`, pero `resultadoNormalizado` sigue siendo `null`. Al terminar, aparecen marca, competidores configurados (también los no mencionados) y fuentes con dominio. `posicionMarca` y `posicion` son `null` si la respuesta no contiene una clasificación ordenada; el orden de aparición no se interpreta como puesto. `citas` contiene las anotaciones originales y `resultadoNormalizado.fuentes` refleja las fuentes persistidas para el análisis.
+`estado` puede ser `PENDIENTE`, `PROCESANDO`, `FINALIZADO`, `FALLIDO` o `CANCELADA`. `estadoNormalizacion` puede ser `NO_REALIZADA`, `PENDIENTE`, `PROCESANDO`, `FINALIZADA`, `FALLIDA` o `CANCELADA`. Mientras la segunda llamada esté pendiente o procesando, la respuesta original puede estar `FINALIZADO`, pero `resultadoNormalizado` sigue siendo `null`. Al terminar, aparecen marca, competidores configurados (también los no mencionados) y fuentes con dominio. `posicionMarca` y `posicion` son `null` si la respuesta no contiene una clasificación ordenada; el orden de aparición no se interpreta como puesto. `citas` contiene las anotaciones originales y `resultadoNormalizado.fuentes` refleja las fuentes persistidas para el análisis.
 
-Al abrir la vista de una consulta, pedir primero `.../ejecuciones/ultima`. Si `estado` está en curso, consultar el intento por UUID cada 3 segundos mientras la página esté abierta. Si `estado` es `FINALIZADO` pero `estadoNormalizacion` está `PENDIENTE` o `PROCESANDO`, continuar el polling hasta `FINALIZADA` o `FALLIDA`. Si falla la normalización, conservar la respuesta original y mostrar `mensajeNormalizacion`; `resultadoNormalizado` queda `null`. En ejecuciones anteriores a V12 o cuando falla la ejecución original, `estadoNormalizacion` es `NO_REALIZADA`. Un reinicio o vencimiento puede pasar cada fase a su estado de fallo independiente. `mensaje` describe un fallo de la ejecución original.
+Al abrir la vista de una consulta, pedir primero `.../ejecuciones/ultima` o el UUID de una ejecución concreta cuando se conozca. Si `estado` está en curso, consultar el intento por UUID cada 3 segundos mientras la página esté abierta. Si `estado` es `FINALIZADO` pero `estadoNormalizacion` está `PENDIENTE` o `PROCESANDO`, continuar el polling hasta `FINALIZADA`, `FALLIDA` o `CANCELADA`. Si falla la normalización, conservar la respuesta original y mostrar `mensajeNormalizacion`; `resultadoNormalizado` queda `null`. En ejecuciones anteriores a V12 o cuando falla la ejecución original, `estadoNormalizacion` es `NO_REALIZADA`. Un reinicio o vencimiento puede pasar cada fase a su estado de fallo independiente. `mensaje` describe un fallo de la ejecución original.
 
 OpenAI recibe el texto original con búsqueda web opcional (`tool_choice: "auto"`). `cantidadBusquedas` cuenta acciones de búsqueda y `cantidadLlamadasWeb` cuenta llamadas a la herramienta; la estimación de costo usa esta última. Si hay citas, mostrarlas visibles y clicables. Texto, tipo y tema son una instantánea histórica. La respuesta literal completa se conserva en la base para auditoría. El resultado normalizado describe una sola ejecución. La solicitud no incluye ubicación de búsqueda: la configuración predeterminada del proveedor puede orientar resultados a Estados Unidos, incluso si el cliente tiene otro país guardado. Habrá que definir la localización antes de comparar países.
 
@@ -471,6 +483,35 @@ La serie tiene una sola entrada por día con ejecuciones, aunque se hayan usado 
 
 Se preservan mediciones de consultas luego dadas de baja. Los registros antiguos que quedaron sin `diaEjecucion` durante V13 no participan en estas métricas para evitar duplicados del mismo día. Las tasas se calculan al pedirlas, sin caché ni tabla de métricas. La comparación de citas propias usa el sitio web actual del cliente; si más adelante se permite editarlo, habrá que conservar el dominio por ejecución para mantener la clasificación histórica.
 
+### Análisis semanal manual
+
+La ruta base es `/api/clientes-monitoreados/{clienteUuid}/analisis-semanales`. `POST` no recibe body y devuelve `202` con el proceso. Al abrir la pantalla de análisis del cliente, consultar `GET .../ultimo` para recuperar el trabajo aunque se haya iniciado desde otra computadora. Si devuelve `PENDIENTE` o `PROCESANDO`, sondear esa ruta o `GET .../{analisisUuid}` hasta `FINALIZADO`, `FALLIDO` o `CANCELADO`. El historial usa `pagina=0` por defecto y 20 elementos por página. SYSADMIN puede leer cualquier cliente; PROPIETARIO y MIEMBRO pueden iniciar y leer solo los de su organización.
+
+Ejemplo abreviado de respuesta finalizada:
+
+```json
+{
+  "uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "clienteUuid": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "desde": "2026-10-09",
+  "hasta": "2026-10-15",
+  "estado": "FINALIZADO",
+  "fechaInicio": "2026-10-15T18:00:00Z",
+  "fechaFin": "2026-10-15T18:00:20Z",
+  "intentos": 1,
+  "mensaje": null,
+  "informe": {
+    "resumen": "La marca apareció en parte de las respuestas analizadas.",
+    "hallazgos": [{"descripcion": "Una respuesta mencionó la marca.", "ejecuciones": ["cccccccc-cccc-4ccc-8ccc-cccccccccccc"]}],
+    "recomendaciones": [{"titulo": "Ampliar contenidos", "accion": "Publicar respuestas a las dudas más frecuentes.", "prioridad": "MEDIA", "ejecuciones": ["cccccccc-cccc-4ccc-8ccc-cccccccccccc"]}]
+  }
+}
+```
+
+`informe` es `null` mientras el trabajo no termine o si falla. Los UUID de `ejecuciones` pertenecen a la muestra usada para el análisis. Los últimos siete días son los días calendario de Argentina hasta el día del inicio, inclusive. Se aceptan datos parciales, pero sin ejecuciones finalizadas y normalizadas el POST devuelve `409` con `detail`. Otro POST durante un trabajo abierto devuelve el mismo proceso; tras un fallo reintenta con el mismo UUID y la misma muestra. Después de finalizar correctamente, el plan Básico exige siete días completos antes de otro POST; hasta entonces devuelve `409`. Sin clave de OpenAI devuelve `503`. La generación automática del informe todavía no está habilitada.
+
+Un cliente archivado puede consultarse, pero no iniciar un análisis nuevo: el POST devuelve `409`. `prioridad` en las recomendaciones puede ser `ALTA`, `MEDIA` o `BAJA`.
+
 ## Errores y estados para la interfaz
 
 | Estado | Tratamiento recomendado |
@@ -495,6 +536,6 @@ No todas las rutas usan el mismo cuerpo de error: algunas respuestas de autentic
 - Listar usuarios; editar o eliminar usuarios; cambiar contraseñas.
 - Editar los datos de clientes o de competidores existentes.
 - Dar de baja temas mediante HTTP.
-- Programar monitoreos, consultar reportes o recomendaciones; ejecutar contra proveedores adicionales.
+- Programar monitoreos automáticos y ejecutar contra proveedores adicionales.
 
 Estas funciones aparecen en la visión del producto, pero el frontend aún no puede conectarlas a una API existente. Para ampliar el contrato, actualizar este documento cuando se implemente cada función. La colección [consultas.postman_collection.json](consultas.postman_collection.json) contiene las rutas de gestión de consultas anteriores a la ejecución manual.

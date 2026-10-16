@@ -9,6 +9,7 @@ import { DetalleEjecucionConsulta } from './componentes/DetalleEjecucionConsulta
 import { FormularioCliente } from './componentes/FormularioCliente'
 import { Ingreso } from './componentes/Ingreso'
 import { MetricasCliente } from './componentes/MetricasCliente'
+import { PaginaAnalisisSemanales } from './componentes/PaginaAnalisisSemanales'
 import { obtenerMensajeError, tienePermiso } from './utilidades'
 import './App.css'
 
@@ -16,12 +17,14 @@ type Ruta =
   | { tipo: 'clientes' }
   | { tipo: 'cliente'; uuid: string; temaUuid?: string }
   | { tipo: 'metricas'; clienteUuid: string }
+  | { tipo: 'analisis'; clienteUuid: string; confirmarAlAbrir: boolean }
   | {
       tipo: 'ejecucion'
       clienteUuid: string
       temaUuid: string
       consultaUuid: string
       iniciarAlAbrir: boolean
+      ejecucionUuid?: string
     }
   | { tipo: 'administracion' }
 
@@ -30,7 +33,7 @@ function leerRuta(): Ruta {
   const ruta = window.location.hash.slice(1)
   if (ruta === '/administracion') return { tipo: 'administracion' }
   const ejecucion =
-    /^\/clientes\/([0-9a-f-]+)\/temas\/([0-9a-f-]+)\/consultas\/([0-9a-f-]+)\/ejecucion$/i.exec(ruta)
+    /^\/clientes\/([0-9a-f-]+)\/temas\/([0-9a-f-]+)\/consultas\/([0-9a-f-]+)\/ejecucion(?:\/([0-9a-f-]+))?$/i.exec(ruta)
   if (ejecucion) {
     return {
       tipo: 'ejecucion',
@@ -38,10 +41,15 @@ function leerRuta(): Ruta {
       temaUuid: ejecucion[2],
       consultaUuid: ejecucion[3],
       iniciarAlAbrir: false,
+      ejecucionUuid: ejecucion[4],
     }
   }
   const metricas = /^\/clientes\/([0-9a-f-]+)\/metricas$/i.exec(ruta)
   if (metricas) return { tipo: 'metricas', clienteUuid: metricas[1] }
+  const analisis = /^\/clientes\/([0-9a-f-]+)\/analisis-semanales(\/nuevo)?$/i.exec(ruta)
+  if (analisis) {
+    return { tipo: 'analisis', clienteUuid: analisis[1], confirmarAlAbrir: Boolean(analisis[2]) }
+  }
   const tema = /^\/clientes\/([0-9a-f-]+)\/temas\/([0-9a-f-]+)$/i.exec(ruta)
   if (tema) return { tipo: 'cliente', uuid: tema[1], temaUuid: tema[2] }
   const cliente = /^\/clientes\/([0-9a-f-]+)$/i.exec(ruta)
@@ -389,6 +397,7 @@ function App() {
     temaUuid: string,
     consulta: DatosConsulta,
     iniciarAlAbrir: boolean,
+    ejecucionUuid?: string,
   ) {
     cambiarRuta({
       tipo: 'ejecucion',
@@ -396,8 +405,9 @@ function App() {
       temaUuid,
       consultaUuid: consulta.uuid,
       iniciarAlAbrir,
+      ejecucionUuid,
     })
-    navegar(`/clientes/${clienteUuid}/temas/${temaUuid}/consultas/${consulta.uuid}/ejecucion`)
+    navegar(`/clientes/${clienteUuid}/temas/${temaUuid}/consultas/${consulta.uuid}/ejecucion${ejecucionUuid ? `/${ejecucionUuid}` : ''}`)
   }
 
   if (restaurando)
@@ -506,16 +516,30 @@ function App() {
           ) : ruta.tipo === 'ejecucion' ? (
             tienePermiso(cuenta.permisos, 'CONSULTAS_VER') ? (
               <DetalleEjecucionConsulta
-                key={`${ruta.clienteUuid}:${ruta.consultaUuid}`}
+                key={`${ruta.clienteUuid}:${ruta.consultaUuid}:${ruta.ejecucionUuid ?? ''}`}
                 clienteUuid={ruta.clienteUuid}
                 temaUuid={ruta.temaUuid}
                 consultaUuid={ruta.consultaUuid}
                 cuenta={cuenta}
                 iniciarAlAbrir={ruta.iniciarAlAbrir}
+                ejecucionInicialUuid={ruta.ejecucionUuid}
                 alVolver={() => navegar(`/clientes/${ruta.clienteUuid}/temas/${ruta.temaUuid}`)}
               />
             ) : (
               <Aviso tipo="informacion">Tu cuenta no tiene permiso para ver consultas.</Aviso>
+            )
+          ) : ruta.tipo === 'analisis' ? (
+            tienePermiso(cuenta.permisos, 'ANALISIS_SEMANALES_VER') ||
+            tienePermiso(cuenta.permisos, 'ANALISIS_SEMANALES_CREAR') ? (
+              <PaginaAnalisisSemanales
+                key={`${ruta.clienteUuid}:${ruta.confirmarAlAbrir}`}
+                clienteUuid={ruta.clienteUuid}
+                cuenta={cuenta}
+                confirmarAlAbrir={ruta.confirmarAlAbrir}
+                alVolver={() => navegar(`/clientes/${ruta.clienteUuid}`)}
+              />
+            ) : (
+              <Aviso tipo="informacion">Tu cuenta no tiene permiso para ver análisis semanales.</Aviso>
             )
           ) : ruta.tipo === 'metricas' ? (
             tienePermiso(cuenta.permisos, 'CONSULTAS_VER') ? (
@@ -535,10 +559,12 @@ function App() {
                 clienteUuid={ruta.uuid}
                 cuenta={cuenta}
                 temaInicialUuid={ruta.temaUuid}
-                alAbrirEjecucion={(consulta, temaUuid, iniciar) =>
-                  abrirEjecucion(ruta.uuid, temaUuid, consulta, iniciar)
+                alAbrirEjecucion={(consulta, temaUuid, iniciar, ejecucionUuid) =>
+                  abrirEjecucion(ruta.uuid, temaUuid, consulta, iniciar, ejecucionUuid)
                 }
                 alVerMetricas={() => navegar(`/clientes/${ruta.uuid}/metricas`)}
+                alVerAnalisis={() => navegar(`/clientes/${ruta.uuid}/analisis-semanales`)}
+                alCrearAnalisis={() => navegar(`/clientes/${ruta.uuid}/analisis-semanales/nuevo`)}
                 alVolver={() => navegar('/clientes')}
               />
             ) : (
