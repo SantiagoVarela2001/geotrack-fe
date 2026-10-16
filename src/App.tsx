@@ -7,6 +7,7 @@ import { ConfirmarEstadoCliente } from './componentes/ConfirmarEstadoCliente'
 import { DetalleCliente } from './componentes/DetalleCliente'
 import { DetalleEjecucionConsulta } from './componentes/DetalleEjecucionConsulta'
 import { FormularioCliente } from './componentes/FormularioCliente'
+import { GastosIa } from './componentes/GastosIa'
 import { Ingreso } from './componentes/Ingreso'
 import { MetricasCliente } from './componentes/MetricasCliente'
 import { PaginaAnalisisSemanales } from './componentes/PaginaAnalisisSemanales'
@@ -27,11 +28,13 @@ type Ruta =
       ejecucionUuid?: string
     }
   | { tipo: 'administracion' }
+  | { tipo: 'gastos-ia' }
 
 /** El hash permite conservar la vista al recargar sin exigir rutas al servidor estático. */
 function leerRuta(): Ruta {
   const ruta = window.location.hash.slice(1)
   if (ruta === '/administracion') return { tipo: 'administracion' }
+  if (ruta === '/gastos-ia') return { tipo: 'gastos-ia' }
   const ejecucion =
     /^\/clientes\/([0-9a-f-]+)\/temas\/([0-9a-f-]+)\/consultas\/([0-9a-f-]+)\/ejecucion(?:\/([0-9a-f-]+))?$/i.exec(ruta)
   if (ejecucion) {
@@ -440,9 +443,13 @@ function App() {
     cuenta.roles.includes('SYSADMIN') &&
     (tienePermiso(cuenta.permisos, 'ORGANIZACIONES_CREAR') ||
       tienePermiso(cuenta.permisos, 'USUARIOS_CREAR'))
+  const puedeVerGastosIa =
+    cuenta.roles.includes('SYSADMIN') && tienePermiso(cuenta.permisos, 'GASTOS_IA_VER')
   const nombreVista =
     ruta.tipo === 'administracion'
       ? 'Administración'
+      : ruta.tipo === 'gastos-ia'
+        ? 'Gastos IA'
       : ruta.tipo === 'cliente'
         ? 'Detalle del cliente'
         : ruta.tipo === 'metricas'
@@ -462,7 +469,7 @@ function App() {
           <nav aria-label="Navegación principal">
             <button
               type="button"
-              className={`nav-item ${ruta.tipo !== 'administracion' ? 'nav-item-activo' : ''}`}
+              className={`nav-item ${ruta.tipo !== 'administracion' && ruta.tipo !== 'gastos-ia' ? 'nav-item-activo' : ''}`}
               onClick={() => navegar('/clientes')}
             >
               <Icono nombre="clientes" tamano={19} /> Clientes
@@ -474,6 +481,15 @@ function App() {
                 onClick={() => navegar('/administracion')}
               >
                 <Icono nombre="ajustes" tamano={19} /> Administración
+              </button>
+            )}
+            {puedeVerGastosIa && (
+              <button
+                type="button"
+                className={`nav-item ${ruta.tipo === 'gastos-ia' ? 'nav-item-activo' : ''}`}
+                onClick={() => navegar('/gastos-ia')}
+              >
+                <Icono nombre="capas" tamano={19} /> Gastos IA
               </button>
             )}
           </nav>
@@ -507,7 +523,13 @@ function App() {
           </div>
         </header>
         <main className="contenido-principal">
-          {ruta.tipo === 'administracion' ? (
+          {ruta.tipo === 'gastos-ia' ? (
+            puedeVerGastosIa ? (
+              <GastosIa />
+            ) : (
+              <Aviso tipo="informacion">Tu cuenta no tiene permiso para ver gastos de IA.</Aviso>
+            )
+          ) : ruta.tipo === 'administracion' ? (
             esAdministrador ? (
               <Administracion cuenta={cuenta} />
             ) : (

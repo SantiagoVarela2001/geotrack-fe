@@ -3220,6 +3220,108 @@
 }
 
 /* Administración */
+.gastos-ia-panel {
+  padding: 20px;
+}
+.gastos-ia-filtros {
+  grid-template-columns: repeat(2, minmax(160px, 220px)) auto auto;
+  align-items: end;
+  justify-content: start;
+  gap: 12px;
+}
+.gastos-ia-error-fechas {
+  grid-column: 1 / -1;
+}
+.gastos-ia-ayuda,
+.gastos-ia-nota {
+  color: #667e90;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.gastos-ia-ayuda {
+  margin: 13px 0 0;
+}
+.gastos-ia-resultados-cabecera {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 27px 0 12px;
+}
+.gastos-ia-resultados-cabecera h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.gastos-ia-resultados-cabecera span {
+  color: #64788a;
+  font-size: 12px;
+}
+.gastos-ia-tabla-contenedor {
+  overflow-x: auto;
+  border: 1px solid var(--linea);
+  border-radius: 8px;
+  background: #fff;
+}
+.gastos-ia-tabla {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.gastos-ia-tabla caption {
+  padding: 14px 18px;
+  color: #667e90;
+  text-align: left;
+  font-size: 12px;
+}
+.gastos-ia-tabla th,
+.gastos-ia-tabla td {
+  padding: 15px 18px;
+  border-top: 1px solid #e9edf1;
+  text-align: left;
+}
+.gastos-ia-tabla thead th {
+  color: #5f7486;
+  background: #f7fafc;
+  font-size: 11px;
+  font-weight: 700;
+}
+.gastos-ia-tabla tbody th {
+  color: var(--tinta);
+  font-weight: 700;
+}
+.gastos-ia-tabla .gastos-ia-numero {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.gastos-ia-tabla thead th:nth-child(n + 3) {
+  text-align: right;
+}
+.gastos-ia-estado {
+  display: inline-block;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.gastos-ia-activa {
+  color: #227455;
+  background: #e9f6ef;
+}
+.gastos-ia-inactiva {
+  color: #6b7781;
+  background: #edf1f3;
+}
+.gastos-ia-vacio {
+  padding: 28px;
+  color: #667e90;
+  text-align: center;
+}
+.gastos-ia-nota {
+  max-width: 850px;
+  margin: 16px 0 0;
+}
 .admin-grilla {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3270,6 +3372,9 @@
 }
 
 @media (max-width: 1050px) {
+  .gastos-ia-filtros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .consulta-fila {
     flex-wrap: wrap;
   }
@@ -3823,4 +3928,9 @@
   .pagina-analisis .analisis-historial-contenido { padding: 0 17px 20px; }
   .analisis-confirmacion { padding: 22px; }
   .analisis-confirmacion-acciones .boton { flex: 1 1 100%; }
+}
+
+@media (max-width: 600px) {
+  .gastos-ia-filtros { grid-template-columns: 1fr; }
+  .gastos-ia-resultados-cabecera { align-items: flex-start; flex-direction: column; }
 }

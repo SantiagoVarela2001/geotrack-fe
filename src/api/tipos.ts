@@ -2,6 +2,7 @@ export type Permiso =
   | 'PLANES_VER'
   | 'ORGANIZACIONES_CREAR'
   | 'ORGANIZACIONES_VER'
+  | 'GASTOS_IA_VER'
   | 'USUARIOS_CREAR'
   | 'CLIENTES_CREAR'
   | 'CLIENTES_VER'
@@ -232,6 +233,14 @@ export interface DatosGeneracionConsultas {
 export interface DatosOrganizacion {
   uuid: string
   nombre: string
+}
+
+export interface DatosGastoIaOrganizacion {
+  uuid: string
+  nombre: string
+  activa: boolean
+  costoEstimadoUsd: number
+  llamadasSinCostoEstimado: number
 }
 
 export interface DatosPlan {

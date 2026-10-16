@@ -5,6 +5,7 @@ import type {
   DatosCuenta,
   DatosEjecucionConsulta,
   DatosGeneracionConsultas,
+  DatosGastoIaOrganizacion,
   DatosMetricasCliente,
   DatosOrganizacion,
   DatosPlan,
@@ -337,6 +338,15 @@ export const api = {
   administracion: {
     listarPlanes: () => solicitar<DatosPlan[]>('/api/planes'),
     listarOrganizaciones: () => solicitar<DatosOrganizacion[]>('/api/organizaciones'),
+    listarGastosIa: (desde?: string, hasta?: string) => {
+      const parametros = new URLSearchParams()
+      if (desde) parametros.set('desde', desde)
+      if (hasta) parametros.set('hasta', hasta)
+      const consulta = parametros.toString()
+      return solicitar<DatosGastoIaOrganizacion[]>(
+        `/api/organizaciones/gastos-ia${consulta ? `?${consulta}` : ''}`,
+      )
+    },
     crearOrganizacion: (datos: SolicitudCrearOrganizacion) =>
       solicitar<DatosOrganizacion>('/api/organizaciones', {
         method: 'POST',

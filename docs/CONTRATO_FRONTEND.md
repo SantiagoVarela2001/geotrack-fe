@@ -1,11 +1,11 @@
 # Contrato para el frontend
 
-Estado documentado al 15 de octubre de 2026. Este documento describe la API implementada y los contratos acordados para los cambios de estado, la gestión de competidores y el análisis semanal manual. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
+Estado documentado al 16 de octubre de 2026. Este documento describe la API implementada y los contratos acordados para los cambios de estado, la gestión de competidores, el análisis semanal manual y los gastos estimados de IA. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
 
 ## Qué puede construir el frontend ahora
 
 - Inicio y cierre de sesión, renovación del acceso y consulta de la cuenta actual.
-- Para `SYSADMIN`: lectura de planes, alta y listado de organizaciones, y alta de usuarios. Todavía no hay listado de usuarios.
+- Para `SYSADMIN`: lectura de planes, alta y listado de organizaciones, alta de usuarios y gastos estimados de IA por organización. Todavía no hay listado de usuarios.
 - Para usuarios de organización: alta, lectura, archivo y reactivación de clientes monitoreados; alta, lectura y baja lógica de competidores; alta, lectura y cambio de nombre de temas; alta, lectura, aprobación y baja lógica de consultas.
 - Para usuarios de organización con CONSULTAS_CREAR: generación asistida de quince borradores por cliente y consulta de su proceso.
 - Para usuarios con `CONSULTAS_VER`: lectura de ejecuciones manuales y métricas GEO agregadas por cliente y período.
@@ -66,6 +66,7 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 | `GET /api/planes` | — | `200 DatosPlan[]` | Rol `SYSADMIN` + `PLANES_VER` |
 | `POST /api/organizaciones` | `SolicitudCrearOrganizacion` | `201 RespuestaOrganizacion` | Rol `SYSADMIN` + `ORGANIZACIONES_CREAR` |
 | `GET /api/organizaciones` | — | `200 RespuestaOrganizacion[]` | Rol `SYSADMIN` + `ORGANIZACIONES_VER` |
+| `GET /api/organizaciones/gastos-ia?desde=AAAA-MM-DD&hasta=AAAA-MM-DD` | — | `200 DatosGastoIaOrganizacion[]` | Rol `SYSADMIN` + `GASTOS_IA_VER` |
 | `POST /api/organizaciones/{organizacionUuid}/usuarios` | `SolicitudCrearUsuario` | `201 RespuestaUsuario` | Rol `SYSADMIN` + `USUARIOS_CREAR` |
 | `POST /api/clientes-monitoreados` | `SolicitudCrearClienteMonitoreado` | `201 DatosCliente` | `CLIENTES_CREAR` |
 | `GET /api/clientes-monitoreados` | — | `200 DatosCliente[]` | `CLIENTES_VER` |
@@ -151,6 +152,19 @@ El primer usuario recibe `PROPIETARIO` automáticamente. Desde el segundo, `rol`
 ```
 
 El correo debe tener formato de email y es único en toda la aplicación; uno repetido devuelve `409`. El primer usuario con un rol distinto de `PROPIETARIO` y los siguientes sin un rol válido devuelven `400`. Una organización inexistente o inactiva devuelve `404`. No enviar organización, usuario creador ni datos de auditoría en los bodies cuando provienen de la ruta o del JWT.
+
+### Gastos estimados de IA por organización
+
+`GET /api/organizaciones/gastos-ia` requiere rol `SYSADMIN` y permiso vigente `GASTOS_IA_VER`. `desde` y `hasta` son opcionales e independientes: filtran días completos e inclusivos en `America/Argentina/Buenos_Aires` según la fecha de creación de cada consumo. Sin filtros devuelve todo el historial; una fecha inválida o un rango invertido devuelve `400`.
+
+```json
+[
+  {"uuid":"11111111-1111-4111-8111-111111111111","nombre":"Agencia Norte","activa":true,"costoEstimadoUsd":0.01500000,"llamadasSinCostoEstimado":1},
+  {"uuid":"22222222-2222-4222-8222-222222222222","nombre":"Agencia Sur","activa":false,"costoEstimadoUsd":0,"llamadasSinCostoEstimado":0}
+]
+```
+
+La respuesta incluye organizaciones inactivas y sin consumos en el período, ordenadas por nombre. `costoEstimadoUsd` suma todas las operaciones y reintentos, incluso fallidos con costo conocido; el costo web ya está incluido. `llamadasSinCostoEstimado` cuenta registros sin importe, por lo que un costo cero no siempre significa que no hubo llamadas. Los importes son estimaciones con las tarifas configuradas, no una factura del proveedor.
 
 ## Clientes monitoreados y competidores
 
