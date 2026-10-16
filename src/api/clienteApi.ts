@@ -8,6 +8,7 @@ import type {
   DatosGastoIaOrganizacion,
   DatosMetricasCliente,
   DatosOrganizacion,
+  DatosPerfil,
   DatosPlan,
   DatosTema,
   DatosTemaConConsultas,
@@ -26,11 +27,13 @@ let alExpirarSesion: (() => void) | null = null
 
 export class ErrorApi extends Error {
   readonly estado: number
+  readonly detalle?: string
 
-  constructor(estado: number, mensaje: string) {
+  constructor(estado: number, mensaje: string, detalle?: string) {
     super(mensaje)
     this.name = 'ErrorApi'
     this.estado = estado
+    this.detalle = detalle
   }
 }
 
@@ -75,6 +78,7 @@ async function crearError(respuesta: Response): Promise<ErrorApi> {
       (competidorDuplicado ? 'Ya existe un competidor activo con ese nombre.' : undefined) ??
       mensajes[respuesta.status] ??
       'No se pudo completar la solicitud.',
+    detalle,
   )
 }
 
@@ -144,10 +148,11 @@ async function solicitar<T>(
 }
 
 export const api = {
+  obtenerCuentaActual: () => solicitar<DatosCuenta>('/api/autenticacion/actual'),
   /** Restaura la sesión exclusivamente a partir de la cookie HttpOnly. */
   async restaurarSesion(): Promise<DatosCuenta> {
     await renovarAcceso()
-    return solicitar<DatosCuenta>('/api/autenticacion/actual')
+    return api.obtenerCuentaActual()
   },
   async ingresar(usuario: string, clave: string): Promise<DatosCuenta> {
     const acceso = await solicitar<RespuestaAcceso>(
@@ -160,7 +165,7 @@ export const api = {
     )
     tokenAcceso = acceso.tokenAcceso
     try {
-      return await solicitar<DatosCuenta>('/api/autenticacion/actual')
+      return await api.obtenerCuentaActual()
     } catch (causa) {
       limpiarSesion()
       throw causa
@@ -179,6 +184,19 @@ export const api = {
     } finally {
       limpiarSesion()
     }
+  },
+  perfil: {
+    obtener: () => solicitar<DatosPerfil>('/api/usuarios/yo'),
+    actualizar: (datos: { nombre: string; correoElectronico?: string }) =>
+      solicitar<DatosPerfil>('/api/usuarios/yo', {
+        method: 'PATCH',
+        body: JSON.stringify(datos),
+      }),
+    cambiarClave: (claveActual: string, claveNueva: string) =>
+      solicitar<void>('/api/usuarios/yo/clave', {
+        method: 'PUT',
+        body: JSON.stringify({ claveActual, claveNueva }),
+      }),
   },
   clientes: {
     listar: () => solicitar<DatosCliente[]>('/api/clientes-monitoreados'),

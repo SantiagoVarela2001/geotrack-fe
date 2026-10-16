@@ -6,6 +6,7 @@ Estado documentado al 16 de octubre de 2026. Este documento describe la API impl
 
 - Inicio y cierre de sesión, renovación del acceso y consulta de la cuenta actual.
 - Para `SYSADMIN`: lectura de planes, alta y listado de organizaciones, alta de usuarios y gastos estimados de IA por organización. Todavía no hay listado de usuarios.
+- Para `PROPIETARIO` con `USUARIOS_CREAR`: alta de usuarios en su propia organización. Todas las cuentas pueden consultar y actualizar su perfil y cambiar su contraseña.
 - Para usuarios de organización: alta, lectura, archivo y reactivación de clientes monitoreados; alta, lectura y baja lógica de competidores; alta, lectura y cambio de nombre de temas; alta, lectura, aprobación y baja lógica de consultas.
 - Para usuarios de organización con CONSULTAS_CREAR: generación asistida de quince borradores por cliente y consulta de su proceso.
 - Para usuarios con `CONSULTAS_VER`: lectura de ejecuciones manuales y métricas GEO agregadas por cliente y período.
@@ -67,7 +68,10 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 | `POST /api/organizaciones` | `SolicitudCrearOrganizacion` | `201 RespuestaOrganizacion` | Rol `SYSADMIN` + `ORGANIZACIONES_CREAR` |
 | `GET /api/organizaciones` | — | `200 RespuestaOrganizacion[]` | Rol `SYSADMIN` + `ORGANIZACIONES_VER` |
 | `GET /api/organizaciones/gastos-ia?desde=AAAA-MM-DD&hasta=AAAA-MM-DD` | — | `200 DatosGastoIaOrganizacion[]` | Rol `SYSADMIN` + `GASTOS_IA_VER` |
-| `POST /api/organizaciones/{organizacionUuid}/usuarios` | `SolicitudCrearUsuario` | `201 RespuestaUsuario` | Rol `SYSADMIN` + `USUARIOS_CREAR` |
+| `POST /api/organizaciones/{organizacionUuid}/usuarios` | `SolicitudCrearUsuario` | `201 RespuestaUsuario` | Rol `SYSADMIN` o `PROPIETARIO` + `USUARIOS_CREAR` |
+| `GET /api/usuarios/yo` | — | `200 DatosPerfil` | JWT |
+| `PATCH /api/usuarios/yo` | `SolicitudActualizarPerfil` | `200 DatosPerfil` actualizado | JWT |
+| `PUT /api/usuarios/yo/clave` | `SolicitudCambiarClave` | `204` | JWT |
 | `POST /api/clientes-monitoreados` | `SolicitudCrearClienteMonitoreado` | `201 DatosCliente` | `CLIENTES_CREAR` |
 | `GET /api/clientes-monitoreados` | — | `200 DatosCliente[]` | `CLIENTES_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}` | — | `200 DatosCliente` | `CLIENTES_VER` |
@@ -100,7 +104,7 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 
 ## Organizaciones y usuarios
 
-Solo `SYSADMIN` puede administrar las organizaciones y dar de alta usuarios. El plan es obligatorio al crear una organización vacía:
+Solo `SYSADMIN` puede administrar las organizaciones. `SYSADMIN` y `PROPIETARIO` con `USUARIOS_CREAR` pueden dar de alta usuarios; el propietario usa exclusivamente su `organizacionUuid` de `GET /api/autenticacion/actual`. El plan es obligatorio al crear una organización vacía:
 
 ```json
 {"nombre":"Agencia Norte","planUuid":"00000000-0000-4000-8000-000000000201"}
@@ -152,6 +156,12 @@ El primer usuario recibe `PROPIETARIO` automáticamente. Desde el segundo, `rol`
 ```
 
 El correo debe tener formato de email y es único en toda la aplicación; uno repetido devuelve `409`. El primer usuario con un rol distinto de `PROPIETARIO` y los siguientes sin un rol válido devuelven `400`. Una organización inexistente o inactiva devuelve `404`. No enviar organización, usuario creador ni datos de auditoría en los bodies cuando provienen de la ruta o del JWT.
+
+### Mi perfil y contraseña
+
+`GET /api/usuarios/yo` devuelve `uuid`, `nombre`, `correoElectronico` y `tipoCuenta`. `PATCH /api/usuarios/yo` recibe el nombre y el correo electrónico completos y devuelve el perfil actualizado. Para `SYSADMIN`, enviar solo `nombre`: la cuenta de plataforma no tiene correo y su identificador de ingreso permanece fijo. Después de cambiar el correo, volver a consultar `GET /api/autenticacion/actual` para actualizar el usuario mostrado. La sesión actual sigue vigente.
+
+`PUT /api/usuarios/yo/clave` recibe `{"claveActual":"clave-elegida","claveNueva":"clave-nueva"}` y devuelve `204`. La confirmación de la nueva contraseña se comprueba en el frontend y no se envía. Al cambiar la contraseña se cierran las demás sesiones; la sesión actual permanece abierta. Un `400` puede indicar datos inválidos o contraseña actual incorrecta; `403`, falta de permiso; `409`, correo ya registrado.
 
 ### Gastos estimados de IA por organización
 
@@ -547,7 +557,7 @@ No todas las rutas usan el mismo cuerpo de error: algunas respuestas de autentic
 
 ## Funciones todavía sin endpoint
 
-- Listar usuarios; editar o eliminar usuarios; cambiar contraseñas.
+- Listar, editar o eliminar otros usuarios.
 - Editar los datos de clientes o de competidores existentes.
 - Dar de baja temas mediante HTTP.
 - Programar monitoreos automáticos y ejecutar contra proveedores adicionales.

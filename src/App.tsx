@@ -10,6 +10,7 @@ import { FormularioCliente } from './componentes/FormularioCliente'
 import { GastosIa } from './componentes/GastosIa'
 import { Ingreso } from './componentes/Ingreso'
 import { MetricasCliente } from './componentes/MetricasCliente'
+import { MiPerfil } from './componentes/MiPerfil'
 import { PaginaAnalisisSemanales } from './componentes/PaginaAnalisisSemanales'
 import { obtenerMensajeError, tienePermiso } from './utilidades'
 import './App.css'
@@ -29,12 +30,14 @@ type Ruta =
     }
   | { tipo: 'administracion' }
   | { tipo: 'gastos-ia' }
+  | { tipo: 'mi-perfil' }
 
 /** El hash permite conservar la vista al recargar sin exigir rutas al servidor estático. */
 function leerRuta(): Ruta {
   const ruta = window.location.hash.slice(1)
   if (ruta === '/administracion') return { tipo: 'administracion' }
   if (ruta === '/gastos-ia') return { tipo: 'gastos-ia' }
+  if (ruta === '/mi-perfil') return { tipo: 'mi-perfil' }
   const ejecucion =
     /^\/clientes\/([0-9a-f-]+)\/temas\/([0-9a-f-]+)\/consultas\/([0-9a-f-]+)\/ejecucion(?:\/([0-9a-f-]+))?$/i.exec(ruta)
   if (ejecucion) {
@@ -439,24 +442,26 @@ function App() {
       </>
     )
 
+  const puedeCrearUsuarios =
+    (cuenta.roles.includes('SYSADMIN') || cuenta.roles.includes('PROPIETARIO')) &&
+    tienePermiso(cuenta.permisos, 'USUARIOS_CREAR')
   const esAdministrador =
-    cuenta.roles.includes('SYSADMIN') &&
-    (tienePermiso(cuenta.permisos, 'ORGANIZACIONES_CREAR') ||
-      tienePermiso(cuenta.permisos, 'USUARIOS_CREAR'))
+    (cuenta.roles.includes('SYSADMIN') &&
+      tienePermiso(cuenta.permisos, 'ORGANIZACIONES_CREAR')) || puedeCrearUsuarios
   const puedeVerGastosIa =
     cuenta.roles.includes('SYSADMIN') && tienePermiso(cuenta.permisos, 'GASTOS_IA_VER')
-  const nombreVista =
-    ruta.tipo === 'administracion'
-      ? 'Administración'
-      : ruta.tipo === 'gastos-ia'
-        ? 'Gastos IA'
-      : ruta.tipo === 'cliente'
-        ? 'Detalle del cliente'
-        : ruta.tipo === 'metricas'
-          ? 'Métricas GEO'
-          : ruta.tipo === 'ejecucion'
-            ? 'Ejecución de consulta'
-            : 'Clientes'
+  const nombreVista = ({
+    clientes: 'Clientes',
+    cliente: 'Detalle del cliente',
+    metricas: 'Métricas GEO',
+    analisis: 'Análisis semanal',
+    ejecucion: 'Ejecución de consulta',
+    administracion: 'Administración',
+    'gastos-ia': 'Gastos IA',
+    'mi-perfil': 'Mi perfil',
+  } satisfies Record<Ruta['tipo'], string>)[ruta.tipo]
+  const vistaClientesActiva =
+    ruta.tipo !== 'administracion' && ruta.tipo !== 'gastos-ia' && ruta.tipo !== 'mi-perfil'
 
   return (
     <div className="aplicacion">
@@ -469,7 +474,7 @@ function App() {
           <nav aria-label="Navegación principal">
             <button
               type="button"
-              className={`nav-item ${ruta.tipo !== 'administracion' && ruta.tipo !== 'gastos-ia' ? 'nav-item-activo' : ''}`}
+              className={`nav-item ${vistaClientesActiva ? 'nav-item-activo' : ''}`}
               onClick={() => navegar('/clientes')}
             >
               <Icono nombre="clientes" tamano={19} /> Clientes
@@ -504,6 +509,10 @@ function App() {
               <small>{cuenta.roles.join(', ') || cuenta.tipoCuenta}</small>
             </span>
           </div>
+          <button className={`nav-item ${ruta.tipo === 'mi-perfil' ? 'nav-item-activo' : ''}`}
+            type="button" onClick={() => navegar('/mi-perfil')}>
+            <Icono nombre="clientes" tamano={18} /> Mi perfil
+          </button>
           <button className="nav-item cerrar-sesion" type="button" onClick={salir}>
             <Icono nombre="salir" tamano={18} /> Cerrar sesión
           </button>
@@ -523,7 +532,9 @@ function App() {
           </div>
         </header>
         <main className="contenido-principal">
-          {ruta.tipo === 'gastos-ia' ? (
+          {ruta.tipo === 'mi-perfil' ? (
+            <MiPerfil alActualizarCuenta={(datos) => cambiarCuenta(datos)} />
+          ) : ruta.tipo === 'gastos-ia' ? (
             puedeVerGastosIa ? (
               <GastosIa />
             ) : (

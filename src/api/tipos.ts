@@ -33,6 +33,13 @@ export interface DatosCuenta {
   permisos: string[]
 }
 
+export interface DatosPerfil {
+  uuid: string
+  nombre: string
+  correoElectronico: string | null
+  tipoCuenta: DatosCuenta['tipoCuenta']
+}
+
 export interface Competidor {
   uuid: string
   nombre: string

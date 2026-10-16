@@ -3353,6 +3353,12 @@
 .admin-tarjeta .boton-primario {
   justify-self: start;
 }
+.perfil-nota {
+  margin: 0;
+  color: #667e90;
+  font-size: 12px;
+  line-height: 1.5;
+}
 .nota-disponibilidad {
   display: flex;
   align-items: start;
