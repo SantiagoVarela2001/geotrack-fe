@@ -4635,4 +4635,5 @@
     font-size: 8pt;
     break-inside: avoid;
   }
+  .informe-pie span:last-child { margin-left: auto; }
 }

@@ -33,6 +33,7 @@ export interface DatosCuenta {
   usuario: string
   tipoCuenta: 'PLATAFORMA' | 'ORGANIZACION'
   organizacionUuid: string | null
+  nombreOrganizacion: string | null
   logoUrl: string | null
   roles: string[]
   permisos: string[]

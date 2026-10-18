@@ -47,13 +47,14 @@ Respuesta `200`:
   "usuario": "ana@ejemplo.com",
   "tipoCuenta": "ORGANIZACION",
   "organizacionUuid": "11111111-1111-4111-8111-111111111111",
+  "nombreOrganizacion": "Agencia Norte",
   "logoUrl": "/api/organizaciones/11111111-1111-4111-8111-111111111111/logo",
   "roles": ["PROPIETARIO"],
   "permisos": ["CLIENTES_CREAR", "CLIENTES_VER", "TEMAS_VER", "CONSULTAS_VER"]
 }
 ```
 
-El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de plataforma, `tipoCuenta` es `PLATAFORMA`, `organizacionUuid` es `null` y `logoUrl` es `null`. `logoUrl` también es `null` cuando la organización aún no tiene logo.
+El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de plataforma, `tipoCuenta` es `PLATAFORMA` y `organizacionUuid`, `nombreOrganizacion` y `logoUrl` son `null`. `logoUrl` también es `null` cuando la organización aún no tiene logo.
 
 ## Endpoints disponibles
 

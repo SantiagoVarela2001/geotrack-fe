@@ -335,7 +335,7 @@ export function InformeMetricas({ metricas, cliente, cuenta, alCerrar }: {
           </section>
 
           <footer className="informe-pie">
-            <span>Creado por {cuenta.usuario}</span>
+            {cuenta.nombreOrganizacion && <span>Creado por {cuenta.nombreOrganizacion}</span>}
             <span>Generado con Gelaia</span>
           </footer>
         </article>,
