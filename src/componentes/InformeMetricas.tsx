@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../api/clienteApi'
 import type { DatosCliente, DatosCuenta, DatosMetricasCliente } from '../api/tipos'
@@ -30,6 +30,16 @@ function fechaLegible(iso: string): string {
 
 function tasaLegible(valor: number | null): string {
   return valor === null ? 'Sin datos' : `${porcentajes.format(valor)} %`
+}
+
+function imagenComoDataUrl(archivo: Blob): Promise<string> {
+  return new Promise((resolver, rechazar) => {
+    const lector = new FileReader()
+    lector.onload = () => typeof lector.result === 'string'
+      ? resolver(lector.result) : rechazar(new Error('No se pudo leer el logo.'))
+    lector.onerror = () => rechazar(new Error('No se pudo leer el logo.'))
+    lector.readAsDataURL(archivo)
+  })
 }
 
 function claveBorrador(clienteUuid: string, cuenta: DatosCuenta): string {
@@ -118,14 +128,60 @@ export function InformeMetricas({ metricas, cliente, cuenta, alCerrar }: {
   const [resumen, cambiarResumen] = useState(() => leerBorrador(clave, metricas.clienteUuid, cuenta))
   const [errorGuardado, cambiarErrorGuardado] = useState(false)
   const [fechaGeneracion, cambiarFechaGeneracion] = useState(() => new Date())
-  const [logoFallido, cambiarLogoFallido] = useState(false)
-  const organizacionLogoUuid = cliente?.organizacionUuid ?? cuenta.organizacionUuid
-  const logoDisponible = Boolean(organizacionLogoUuid) &&
-    (cuenta.organizacionUuid !== organizacionLogoUuid || Boolean(cuenta.logoUrl)) && !logoFallido
+  const [resultadoLogo, cambiarResultadoLogo] = useState<{
+    url: string
+    intento: number
+    estado: 'listo' | 'ausente' | 'error'
+    imagen: string | null
+  } | null>(null)
+  const [reintentoLogo, cambiarReintentoLogo] = useState(0)
+  const organizacionLogoUuid = cuenta.organizacionUuid ?? cliente?.organizacionUuid
+  const urlLogo = cuenta.logoUrl ?? (organizacionLogoUuid
+    ? api.organizaciones.urlLogo(organizacionLogoUuid) : null)
+  const logoVigente = resultadoLogo?.url === urlLogo && resultadoLogo.intento === reintentoLogo
+  const estadoLogo = !urlLogo ? 'ausente' : logoVigente ? resultadoLogo.estado : 'cargando'
+  const logoInforme = estadoLogo === 'listo' ? resultadoLogo?.imagen : null
   const nombreCliente = cliente?.nombre ?? `Cliente ${metricas.clienteUuid}`
   const competidores = [...metricas.competidores]
     .sort((primero, segundo) => segundo.menciones - primero.menciones ||
       primero.nombre.localeCompare(segundo.nombre, 'es'))
+
+  useEffect(() => {
+    if (!urlLogo) return
+
+    const direccionLogo = urlLogo
+    const intento = reintentoLogo
+    const controlador = new AbortController()
+    let vigente = true
+
+    async function cargarLogo() {
+      try {
+        const respuesta = await fetch(direccionLogo, { cache: 'no-store', signal: controlador.signal })
+        if (respuesta.status === 404) {
+          if (vigente) cambiarResultadoLogo({ url: direccionLogo, intento, estado: 'ausente', imagen: null })
+          return
+        }
+        if (!respuesta.ok) throw new Error('No se pudo obtener el logo.')
+        const archivo = await respuesta.blob()
+        if (!['image/png', 'image/jpeg'].includes(archivo.type)) {
+          throw new Error('El logo no es PNG ni JPEG.')
+        }
+        const imagen = await imagenComoDataUrl(archivo)
+        const precarga = new Image()
+        precarga.src = imagen
+        await precarga.decode()
+        if (vigente) cambiarResultadoLogo({ url: direccionLogo, intento, estado: 'listo', imagen })
+      } catch {
+        if (vigente) cambiarResultadoLogo({ url: direccionLogo, intento, estado: 'error', imagen: null })
+      }
+    }
+
+    void cargarLogo()
+    return () => {
+      vigente = false
+      controlador.abort()
+    }
+  }, [urlLogo, reintentoLogo])
 
   function guardarResumen(texto: string) {
     cambiarResumen(texto)
@@ -144,18 +200,11 @@ export function InformeMetricas({ metricas, cliente, cuenta, alCerrar }: {
   }
 
   async function imprimir() {
+    if (estadoLogo === 'cargando' || estadoLogo === 'error') return
     cambiarFechaGeneracion(new Date())
     await new Promise<void>((resolver) => window.requestAnimationFrame(() => resolver()))
     const logo = document.querySelector<HTMLImageElement>('.informe-imprimible img[data-logo-organizacion]')
-    if (logo && !logo.complete) {
-      await Promise.race([
-        new Promise<void>((resolver) => {
-          logo.addEventListener('load', () => resolver(), { once: true })
-          logo.addEventListener('error', () => resolver(), { once: true })
-        }),
-        new Promise<void>((resolver) => window.setTimeout(resolver, 2000)),
-      ])
-    }
+    if (logo) await logo.decode()
     window.print()
   }
 
@@ -181,8 +230,22 @@ export function InformeMetricas({ metricas, cliente, cuenta, alCerrar }: {
         {errorGuardado && (
           <Aviso>No se pudo guardar el borrador en este navegador. Conservá esta página abierta mientras editás.</Aviso>
         )}
+        <div className="metricas-informe-logo">
+          <span>Logo de la empresa en el PDF</span>
+          {logoInforme && <img src={logoInforme} alt="Logo de la empresa" />}
+          {estadoLogo === 'cargando' && <small>Cargando logo…</small>}
+          {estadoLogo === 'ausente' && <small>Esta organización no tiene un logo cargado.</small>}
+          {estadoLogo === 'error' && (
+            <div className="metricas-informe-logo-error">
+              <small>No se pudo cargar el logo. Reintentá antes de imprimir.</small>
+              <button className="boton boton-secundario boton-chico" type="button"
+                onClick={() => cambiarReintentoLogo((actual) => actual + 1)}>Reintentar</button>
+            </div>
+          )}
+        </div>
         <div className="metricas-informe-acciones">
-          <button className="boton boton-primario" type="button" onClick={imprimir}>
+          <button className="boton boton-primario" type="button" onClick={imprimir}
+            disabled={estadoLogo === 'cargando' || estadoLogo === 'error'}>
             Imprimir / Guardar PDF
           </button>
           {resumen && (
@@ -201,11 +264,10 @@ export function InformeMetricas({ metricas, cliente, cuenta, alCerrar }: {
               <h1>{nombreCliente}</h1>
               {cliente?.nombreMarca && <p>Marca monitoreada: {cliente.nombreMarca}</p>}
             </div>
-            {logoDisponible && organizacionLogoUuid && (
+            {logoInforme && (
               <img data-logo-organizacion
-                src={api.organizaciones.urlLogo(organizacionLogoUuid)}
-                alt="Logo de la organización"
-                onError={() => cambiarLogoFallido(true)} />
+                src={logoInforme}
+                alt="Logo de la empresa" />
             )}
           </header>
 

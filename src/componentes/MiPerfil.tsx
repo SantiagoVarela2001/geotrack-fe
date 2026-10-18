@@ -63,7 +63,8 @@ export function MiPerfil({ cuenta, alActualizarCuenta }: {
   const [errorImagenLogo, cambiarErrorImagenLogo] = useState(false)
   const [revisionLogo, cambiarRevisionLogo] = useState(0)
   const entradaLogo = useRef<HTMLInputElement>(null)
-  const urlVistaPreviaActual = useRef<string | null>(null)
+  const lectorVistaPrevia = useRef<FileReader | null>(null)
+  const revisionVistaPrevia = useRef(0)
   const organizacionUuid = cuenta.tipoCuenta === 'ORGANIZACION' ? cuenta.organizacionUuid : null
   const puedeEditarLogo = Boolean(organizacionUuid) && cuenta.roles.includes('PROPIETARIO') &&
     cuenta.permisos.includes('ORGANIZACIONES_LOGO_EDITAR')
@@ -92,15 +93,38 @@ export function MiPerfil({ cuenta, alActualizarCuenta }: {
   }, [revisionPerfil])
 
   useEffect(() => () => {
-    if (urlVistaPreviaActual.current) URL.revokeObjectURL(urlVistaPreviaActual.current)
+    revisionVistaPrevia.current += 1
+    lectorVistaPrevia.current?.abort()
   }, [])
 
   function seleccionarArchivoLogo(archivo: File | null) {
-    if (urlVistaPreviaActual.current) URL.revokeObjectURL(urlVistaPreviaActual.current)
-    const url = archivo ? URL.createObjectURL(archivo) : null
-    urlVistaPreviaActual.current = url
+    lectorVistaPrevia.current?.abort()
+    const revision = ++revisionVistaPrevia.current
     cambiarArchivoLogo(archivo)
-    cambiarUrlVistaPrevia(url)
+    cambiarUrlVistaPrevia(null)
+    if (!archivo) return
+
+    const lector = new FileReader()
+    lectorVistaPrevia.current = lector
+    lector.onload = () => {
+      if (revision !== revisionVistaPrevia.current) return
+      lectorVistaPrevia.current = null
+      if (typeof lector.result === 'string') {
+        cambiarUrlVistaPrevia(lector.result)
+      } else {
+        cambiarArchivoLogo(null)
+        cambiarErrorLogo('No se pudo mostrar la imagen seleccionada. Elegí otro PNG o JPG.')
+        if (entradaLogo.current) entradaLogo.current.value = ''
+      }
+    }
+    lector.onerror = () => {
+      if (revision !== revisionVistaPrevia.current) return
+      lectorVistaPrevia.current = null
+      cambiarArchivoLogo(null)
+      cambiarErrorLogo('No se pudo mostrar la imagen seleccionada. Elegí otro PNG o JPG.')
+      if (entradaLogo.current) entradaLogo.current.value = ''
+    }
+    lector.readAsDataURL(archivo)
   }
 
   async function actualizarCuenta() {
@@ -306,7 +330,7 @@ export function MiPerfil({ cuenta, alActualizarCuenta }: {
               <span className="perfil-seccion-icono"><Icono nombre="clientes" /></span>
               <div>
                 <h2>Logo de la organización</h2>
-                <p>{urlVistaPrevia ? (
+                <p>{archivoLogo ? (
                   <>
                     Vista previa sin guardar.{' '}
                     <button className="perfil-logo-descartar" type="button" disabled={guardandoLogo}
@@ -323,7 +347,9 @@ export function MiPerfil({ cuenta, alActualizarCuenta }: {
             </div>
             <div className="perfil-logo-contenido">
               <div className="perfil-logo-vista">
-                {urlVistaPrevia || mostrarLogo ? (
+                {archivoLogo && !urlVistaPrevia ? (
+                  <span>Preparando vista previa…</span>
+                ) : urlVistaPrevia || mostrarLogo ? (
                   <img
                     src={urlVistaPrevia ?? `${api.organizaciones.urlLogo(organizacionUuid)}?v=${revisionLogo}`}
                     alt={urlVistaPrevia ? 'Vista previa del logo seleccionado' : 'Logo de la organización'}
@@ -377,7 +403,7 @@ export function MiPerfil({ cuenta, alActualizarCuenta }: {
                   {errorLogo && <Aviso>{errorLogo}</Aviso>}
                   {exitoLogo && <Aviso tipo="exito">{exitoLogo}</Aviso>}
                   <button className="boton boton-primario" type="submit"
-                    disabled={!archivoLogo || guardandoLogo}>
+                    disabled={!archivoLogo || !urlVistaPrevia || guardandoLogo}>
                     {guardandoLogo ? 'Subiendo…' : 'Guardar logo'}
                   </button>
                 </form>

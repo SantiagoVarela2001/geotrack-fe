@@ -1222,6 +1222,35 @@
   outline: 2px solid #159cac;
   outline-offset: 2px;
 }
+.metricas-informe-logo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 12px 0 4px;
+  border-top: 1px solid #e6edf1;
+}
+.metricas-informe-logo > span {
+  color: #263e50;
+  font-size: 12px;
+  font-weight: 700;
+}
+.metricas-informe-logo img {
+  display: block;
+  max-width: 140px;
+  max-height: 56px;
+  object-fit: contain;
+}
+.metricas-informe-logo small {
+  color: #64788a;
+  font-size: 12px;
+}
+.metricas-informe-logo-error {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .metricas-informe-acciones {
   display: flex;
   flex-wrap: wrap;
