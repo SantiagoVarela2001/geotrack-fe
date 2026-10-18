@@ -531,7 +531,7 @@ function App() {
         </header>
         <main className="contenido-principal">
           {ruta.tipo === 'mi-perfil' ? (
-            <MiPerfil alActualizarCuenta={(datos) => cambiarCuenta(datos)} />
+            <MiPerfil cuenta={cuenta} alActualizarCuenta={(datos) => cambiarCuenta(datos)} />
           ) : ruta.tipo === 'gastos-ia' ? (
             puedeVerGastosIa ? (
               <GastosIa />

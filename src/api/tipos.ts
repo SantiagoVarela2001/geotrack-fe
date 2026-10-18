@@ -2,6 +2,7 @@ export type Permiso =
   | 'PLANES_VER'
   | 'ORGANIZACIONES_CREAR'
   | 'ORGANIZACIONES_VER'
+  | 'ORGANIZACIONES_LOGO_EDITAR'
   | 'GASTOS_IA_VER'
   | 'USUARIOS_CREAR'
   | 'USUARIOS_VER'
@@ -32,6 +33,7 @@ export interface DatosCuenta {
   usuario: string
   tipoCuenta: 'PLATAFORMA' | 'ORGANIZACION'
   organizacionUuid: string | null
+  logoUrl: string | null
   roles: string[]
   permisos: string[]
 }
@@ -243,6 +245,7 @@ export interface DatosGeneracionConsultas {
 export interface DatosOrganizacion {
   uuid: string
   nombre: string
+  logoUrl: string | null
 }
 
 export interface DatosGastoIaOrganizacion {

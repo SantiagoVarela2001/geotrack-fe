@@ -47,12 +47,13 @@ Respuesta `200`:
   "usuario": "ana@ejemplo.com",
   "tipoCuenta": "ORGANIZACION",
   "organizacionUuid": "11111111-1111-4111-8111-111111111111",
+  "logoUrl": "/api/organizaciones/11111111-1111-4111-8111-111111111111/logo",
   "roles": ["PROPIETARIO"],
   "permisos": ["CLIENTES_CREAR", "CLIENTES_VER", "TEMAS_VER", "CONSULTAS_VER"]
 }
 ```
 
-El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de plataforma, `tipoCuenta` es `PLATAFORMA` y `organizacionUuid` es `null`.
+El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de plataforma, `tipoCuenta` es `PLATAFORMA`, `organizacionUuid` es `null` y `logoUrl` es `null`. `logoUrl` también es `null` cuando la organización aún no tiene logo.
 
 ## Endpoints disponibles
 
@@ -67,6 +68,8 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 | `GET /api/planes` | — | `200 DatosPlan[]` | Rol `SYSADMIN` + `PLANES_VER` |
 | `POST /api/organizaciones` | `SolicitudCrearOrganizacion` | `201 RespuestaOrganizacion` | Rol `SYSADMIN` + `ORGANIZACIONES_CREAR` |
 | `GET /api/organizaciones` | — | `200 RespuestaOrganizacion[]` | Rol `SYSADMIN` + `ORGANIZACIONES_VER` |
+| `GET /api/organizaciones/{organizacionUuid}/logo` | — | `200 image/png` o `image/jpeg`; `404` si no existe | Pública |
+| `PUT /api/organizaciones/{organizacionUuid}/logo` | `multipart/form-data` con campo `archivo` | Logo cargado o reemplazado | Rol `PROPIETARIO` de la organización + `ORGANIZACIONES_LOGO_EDITAR` |
 | `GET /api/organizaciones/gastos-ia?desde=AAAA-MM-DD&hasta=AAAA-MM-DD` | — | `200 DatosGastoIaOrganizacion[]` | Rol `SYSADMIN` + `GASTOS_IA_VER` |
 | `POST /api/organizaciones/{organizacionUuid}/usuarios` | `SolicitudCrearUsuario` | `201 RespuestaUsuario` | Rol `SYSADMIN` o `PROPIETARIO` + `USUARIOS_CREAR` |
 | `GET /api/organizaciones/{organizacionUuid}/usuarios` | — | `200 DatosUsuarioOrganizacion[]` | Rol `SYSADMIN` o `PROPIETARIO` + `USUARIOS_VER` |
@@ -126,19 +129,21 @@ El `uuid` elegido se envía como `planUuid`. Un plan omitido, inválido o inexis
 `POST /api/organizaciones` devuelve `201` con, por ejemplo:
 
 ```json
-{"uuid":"11111111-1111-4111-8111-111111111111","nombre":"Agencia Norte"}
+{"uuid":"11111111-1111-4111-8111-111111111111","nombre":"Agencia Norte","logoUrl":null}
 ```
 
 `GET /api/organizaciones` devuelve `200` con un array de esos mismos objetos, ordenado por `nombre` y limitado a organizaciones activas:
 
 ```json
 [
-  {"uuid":"11111111-1111-4111-8111-111111111111","nombre":"Agencia Norte"},
-  {"uuid":"22222222-2222-4222-8222-222222222222","nombre":"Agencia Sur"}
+  {"uuid":"11111111-1111-4111-8111-111111111111","nombre":"Agencia Norte","logoUrl":null},
+  {"uuid":"22222222-2222-4222-8222-222222222222","nombre":"Agencia Sur","logoUrl":null}
 ]
 ```
 
-Si no hay organizaciones activas, devuelve `[]`. Requiere el rol `SYSADMIN` y el permiso `ORGANIZACIONES_VER`; no incluye usuarios ni otros campos.
+Si no hay organizaciones activas, devuelve `[]`. Requiere el rol `SYSADMIN` y el permiso `ORGANIZACIONES_VER`; cada fila incluye solo `uuid`, `nombre` y `logoUrl`.
+
+El propietario puede cargar o reemplazar el logo de su propia organización mediante `PUT /api/organizaciones/{organizacionUuid}/logo` con el campo `archivo`. El frontend acepta PNG y JPG de hasta 5 MB. El logo actual se consulta públicamente en `GET /api/organizaciones/{organizacionUuid}/logo`; `logoUrl` vale `null` hasta que exista una imagen.
 
 Para crear su primer usuario:
 

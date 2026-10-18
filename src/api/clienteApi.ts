@@ -109,10 +109,13 @@ async function solicitar<T>(
   opciones: RequestInit = {},
   protegida = true,
   reintento = true,
+  ignorarRespuesta = false,
 ): Promise<T> {
   const tokenDeSolicitud = tokenAcceso
   const encabezados = new Headers(opciones.headers)
-  if (opciones.body !== undefined) encabezados.set('Content-Type', 'application/json')
+  if (opciones.body !== undefined && !(opciones.body instanceof FormData) && !encabezados.has('Content-Type')) {
+    encabezados.set('Content-Type', 'application/json')
+  }
   if (protegida && tokenDeSolicitud) encabezados.set('Authorization', `Bearer ${tokenDeSolicitud}`)
 
   let respuesta: Response
@@ -132,7 +135,7 @@ async function solicitar<T>(
   if (respuesta.status === 401 && protegida && reintento) {
     try {
       if (!tokenAcceso || tokenAcceso === tokenDeSolicitud) await renovarAcceso()
-      return solicitar<T>(ruta, opciones, true, false)
+      return solicitar<T>(ruta, opciones, true, false, ignorarRespuesta)
     } catch {
       limpiarSesion()
       alExpirarSesion?.()
@@ -144,12 +147,26 @@ async function solicitar<T>(
     alExpirarSesion?.()
   }
   if (!respuesta.ok) throw await crearError(respuesta)
-  if (respuesta.status === 204) return undefined as T
+  if (respuesta.status === 204 || ignorarRespuesta) return undefined as T
   return (await respuesta.json()) as T
 }
 
 export const api = {
   obtenerCuentaActual: () => solicitar<DatosCuenta>('/api/autenticacion/actual'),
+  organizaciones: {
+    urlLogo: (uuid: string) => `/api/organizaciones/${encodeURIComponent(uuid)}/logo`,
+    subirLogo: (uuid: string, archivo: File) => {
+      const datos = new FormData()
+      datos.append('archivo', archivo)
+      return solicitar<void>(
+        `/api/organizaciones/${encodeURIComponent(uuid)}/logo`,
+        { method: 'PUT', body: datos },
+        true,
+        true,
+        true,
+      )
+    },
+  },
   /** Restaura la sesión exclusivamente a partir de la cookie HttpOnly. */
   async restaurarSesion(): Promise<DatosCuenta> {
     await renovarAcceso()

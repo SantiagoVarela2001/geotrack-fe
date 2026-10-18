@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ErrorApi, api } from '../api/clienteApi'
 import type { DatosCuenta, DatosPerfil } from '../api/tipos'
 import { obtenerMensajeError } from '../utilidades'
@@ -21,7 +21,23 @@ function mensajeErrorClave(causa: unknown): string {
   return obtenerMensajeError(causa)
 }
 
-export function MiPerfil({ alActualizarCuenta }: { alActualizarCuenta: (cuenta: DatosCuenta) => void }) {
+function mensajeErrorLogo(causa: unknown): string {
+  if (causa instanceof ErrorApi) {
+    if (causa.estado === 400 || causa.estado === 413 || causa.estado === 415) {
+      return causa.detalle ?? 'Elegí una imagen PNG o JPG de hasta 5 MB.'
+    }
+    if (causa.estado === 403) return 'No tenés permiso para cambiar el logo de la organización.'
+    if (causa.estado === 404) return 'La organización ya no está disponible.'
+  }
+  return obtenerMensajeError(causa)
+}
+
+const TAMANO_MAXIMO_LOGO = 5 * 1024 * 1024
+
+export function MiPerfil({ cuenta, alActualizarCuenta }: {
+  cuenta: DatosCuenta
+  alActualizarCuenta: (cuenta: DatosCuenta) => void
+}) {
   const [perfil, cambiarPerfil] = useState<DatosPerfil | null>(null)
   const [nombre, cambiarNombre] = useState('')
   const [correo, cambiarCorreo] = useState('')
@@ -38,6 +54,20 @@ export function MiPerfil({ alActualizarCuenta }: { alActualizarCuenta: (cuenta: 
   const [errorClave, cambiarErrorClave] = useState('')
   const [exitoClave, cambiarExitoClave] = useState('')
   const [guardandoClave, cambiarGuardandoClave] = useState(false)
+  const [archivoLogo, cambiarArchivoLogo] = useState<File | null>(null)
+  const [urlVistaPrevia, cambiarUrlVistaPrevia] = useState<string | null>(null)
+  const [guardandoLogo, cambiarGuardandoLogo] = useState(false)
+  const [errorLogo, cambiarErrorLogo] = useState('')
+  const [exitoLogo, cambiarExitoLogo] = useState('')
+  const [logoSubido, cambiarLogoSubido] = useState(false)
+  const [errorImagenLogo, cambiarErrorImagenLogo] = useState(false)
+  const [revisionLogo, cambiarRevisionLogo] = useState(0)
+  const entradaLogo = useRef<HTMLInputElement>(null)
+  const urlVistaPreviaActual = useRef<string | null>(null)
+  const organizacionUuid = cuenta.tipoCuenta === 'ORGANIZACION' ? cuenta.organizacionUuid : null
+  const puedeEditarLogo = Boolean(organizacionUuid) && cuenta.roles.includes('PROPIETARIO') &&
+    cuenta.permisos.includes('ORGANIZACIONES_LOGO_EDITAR')
+  const mostrarLogo = Boolean(cuenta.logoUrl || logoSubido) && !errorImagenLogo
 
   useEffect(() => {
     let vigente = true
@@ -60,6 +90,18 @@ export function MiPerfil({ alActualizarCuenta }: { alActualizarCuenta: (cuenta: 
       vigente = false
     }
   }, [revisionPerfil])
+
+  useEffect(() => () => {
+    if (urlVistaPreviaActual.current) URL.revokeObjectURL(urlVistaPreviaActual.current)
+  }, [])
+
+  function seleccionarArchivoLogo(archivo: File | null) {
+    if (urlVistaPreviaActual.current) URL.revokeObjectURL(urlVistaPreviaActual.current)
+    const url = archivo ? URL.createObjectURL(archivo) : null
+    urlVistaPreviaActual.current = url
+    cambiarArchivoLogo(archivo)
+    cambiarUrlVistaPrevia(url)
+  }
 
   async function actualizarCuenta() {
     try {
@@ -124,20 +166,53 @@ export function MiPerfil({ alActualizarCuenta }: { alActualizarCuenta: (cuenta: 
     }
   }
 
+  async function guardarLogo(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault()
+    if (!organizacionUuid || !puedeEditarLogo || !archivoLogo) return
+    cambiarErrorLogo('')
+    cambiarExitoLogo('')
+    cambiarGuardandoLogo(true)
+    try {
+      await api.organizaciones.subirLogo(organizacionUuid, archivoLogo)
+      cambiarLogoSubido(true)
+      cambiarErrorImagenLogo(false)
+      cambiarRevisionLogo((actual) => actual + 1)
+      seleccionarArchivoLogo(null)
+      if (entradaLogo.current) entradaLogo.current.value = ''
+      try {
+        alActualizarCuenta(await api.obtenerCuentaActual())
+        cambiarExitoLogo('Logo actualizado.')
+      } catch (causa) {
+        cambiarExitoLogo('Logo actualizado.')
+        cambiarErrorLogo(`No se pudo actualizar la cuenta mostrada: ${obtenerMensajeError(causa)}`)
+      }
+    } catch (causa) {
+      cambiarErrorLogo(mensajeErrorLogo(causa))
+    } finally {
+      cambiarGuardandoLogo(false)
+    }
+  }
+
   return (
     <div className="contenido-limitado pagina-perfil">
       <div className="encabezado-pagina">
         <div>
           <span className="sobrelinea">TU CUENTA</span>
           <h1>Mi perfil</h1>
-          <p>Actualizá tus datos y tu contraseña.</p>
+          <p>{puedeEditarLogo
+            ? 'Actualizá tus datos, tu contraseña y el logo de tu organización.'
+            : 'Actualizá tus datos y tu contraseña.'}</p>
         </div>
       </div>
-      <div className="admin-grilla">
-        <section className="tarjeta admin-tarjeta">
-          <div className="admin-tarjeta-icono"><Icono nombre="clientes" /></div>
-          <h2>Datos personales</h2>
-          <p className="texto-secundario">Estos datos identifican tu cuenta en Gelaia.</p>
+      <div className="tarjeta perfil-panel">
+        <section className="perfil-seccion perfil-seccion-principal">
+          <div className="perfil-seccion-cabecera">
+            <span className="perfil-seccion-icono"><Icono nombre="clientes" /></span>
+            <div>
+              <h2>Datos personales</h2>
+              <p>Estos datos identifican tu cuenta en Gelaia.</p>
+            </div>
+          </div>
           {cargandoPerfil ? (
             <div role="status">Cargando perfil…</div>
           ) : errorCarga ? (
@@ -190,10 +265,14 @@ export function MiPerfil({ alActualizarCuenta }: { alActualizarCuenta: (cuenta: 
           )}
         </section>
 
-        <section className="tarjeta admin-tarjeta">
-          <div className="admin-tarjeta-icono"><Icono nombre="escudo" /></div>
-          <h2>Cambiar mi contraseña</h2>
-          <p className="texto-secundario">Las demás sesiones se cerrarán al confirmar el cambio.</p>
+        <section className="perfil-seccion perfil-seccion-principal perfil-seccion-clave">
+          <div className="perfil-seccion-cabecera">
+            <span className="perfil-seccion-icono"><Icono nombre="escudo" /></span>
+            <div>
+              <h2>Contraseña</h2>
+              <p>Las demás sesiones se cerrarán al confirmar el cambio.</p>
+            </div>
+          </div>
           <form className="formulario apilado" onSubmit={guardarClave}>
             <label>
               Contraseña actual
@@ -220,6 +299,92 @@ export function MiPerfil({ alActualizarCuenta }: { alActualizarCuenta: (cuenta: 
             </button>
           </form>
         </section>
+
+        {organizacionUuid && (
+          <section className="perfil-seccion perfil-seccion-logo">
+            <div className="perfil-seccion-cabecera">
+              <span className="perfil-seccion-icono"><Icono nombre="clientes" /></span>
+              <div>
+                <h2>Logo de la organización</h2>
+                <p>{urlVistaPrevia ? (
+                  <>
+                    Vista previa sin guardar.{' '}
+                    <button className="perfil-logo-descartar" type="button" disabled={guardandoLogo}
+                      onClick={() => {
+                        seleccionarArchivoLogo(null)
+                        cambiarErrorLogo('')
+                        if (entradaLogo.current) entradaLogo.current.value = ''
+                      }}>
+                      Descartar selección
+                    </button>
+                  </>
+                ) : 'La imagen actual de tu organización.'}</p>
+              </div>
+            </div>
+            <div className="perfil-logo-contenido">
+              <div className="perfil-logo-vista">
+                {urlVistaPrevia || mostrarLogo ? (
+                  <img
+                    src={urlVistaPrevia ?? `${api.organizaciones.urlLogo(organizacionUuid)}?v=${revisionLogo}`}
+                    alt={urlVistaPrevia ? 'Vista previa del logo seleccionado' : 'Logo de la organización'}
+                    onError={() => {
+                      if (urlVistaPrevia) {
+                        seleccionarArchivoLogo(null)
+                        cambiarErrorLogo('No se pudo mostrar la imagen seleccionada. Elegí otro PNG o JPG.')
+                        if (entradaLogo.current) entradaLogo.current.value = ''
+                      } else {
+                        cambiarErrorImagenLogo(true)
+                      }
+                    }}
+                  />
+                ) : (
+                  <span>Sin logo</span>
+                )}
+              </div>
+              {puedeEditarLogo && (
+                <form className="formulario apilado perfil-logo-formulario" onSubmit={guardarLogo}>
+                  <label>
+                    Elegir imagen
+                    <input
+                      ref={entradaLogo}
+                      type="file"
+                      accept="image/png,image/jpeg,.png,.jpg,.jpeg"
+                      disabled={guardandoLogo}
+                      onChange={(evento) => {
+                        const archivo = evento.target.files?.[0] ?? null
+                        cambiarErrorLogo('')
+                        cambiarExitoLogo('')
+                        if (!archivo) {
+                          seleccionarArchivoLogo(null)
+                          return
+                        }
+                        if (!['image/png', 'image/jpeg'].includes(archivo.type) ||
+                            !/\.(png|jpe?g)$/i.test(archivo.name)) {
+                          seleccionarArchivoLogo(null)
+                          cambiarErrorLogo('Elegí un archivo PNG o JPG.')
+                          evento.target.value = ''
+                        } else if (archivo.size > TAMANO_MAXIMO_LOGO) {
+                          seleccionarArchivoLogo(null)
+                          cambiarErrorLogo('La imagen no puede pesar más de 5 MB.')
+                          evento.target.value = ''
+                        } else {
+                          seleccionarArchivoLogo(archivo)
+                        }
+                      }}
+                    />
+                  </label>
+                  <p className="perfil-nota">Formatos PNG o JPG. Tamaño máximo: 5 MB.</p>
+                  {errorLogo && <Aviso>{errorLogo}</Aviso>}
+                  {exitoLogo && <Aviso tipo="exito">{exitoLogo}</Aviso>}
+                  <button className="boton boton-primario" type="submit"
+                    disabled={!archivoLogo || guardandoLogo}>
+                    {guardandoLogo ? 'Subiendo…' : 'Guardar logo'}
+                  </button>
+                </form>
+              )}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )
