@@ -23,7 +23,10 @@ function mensajeErrorClave(causa: unknown): string {
 
 function mensajeErrorLogo(causa: unknown): string {
   if (causa instanceof ErrorApi) {
-    if (causa.estado === 400 || causa.estado === 413 || causa.estado === 415) {
+    if (causa.estado === 413) {
+      return causa.detalle ?? 'El servidor rechazó la carga del logo (413). Si la imagen pesa menos de 5 MB, informá este error.'
+    }
+    if (causa.estado === 400 || causa.estado === 415) {
       return causa.detalle ?? 'Elegí una imagen PNG o JPG de hasta 5 MB.'
     }
     if (causa.estado === 403) return 'No tenés permiso para cambiar el logo de la organización.'

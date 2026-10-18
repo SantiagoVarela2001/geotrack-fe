@@ -17,6 +17,20 @@ server {
         proxy_read_timeout 30s;
     }
 
+    location ~ "^/api/organizaciones/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/logo$" {
+        client_max_body_size 6m;
+        proxy_pass ${API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Forwarded "";
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto ${API_FORWARDED_PROTO};
+        proxy_set_header Connection "";
+        proxy_read_timeout 30s;
+    }
+
     location /assets/ {
         try_files $uri =404;
         add_header Cache-Control "public, max-age=31536000, immutable";
