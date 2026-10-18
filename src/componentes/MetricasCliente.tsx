@@ -8,6 +8,7 @@ import type {
 import { obtenerMensajeError, tienePermiso } from '../utilidades'
 import { Aviso, Icono } from './Comun'
 import { GraficoEvolucionDiaria } from './GraficoEvolucionDiaria'
+import { InformeMetricas } from './InformeMetricas'
 
 type Periodo = { desde: string; hasta: string }
 type FiltroRapido = 'mes' | 'seisMeses' | 'anio'
@@ -92,6 +93,7 @@ export function MetricasCliente({
   const [cargando, cambiarCargando] = useState(true)
   const [error, cambiarError] = useState('')
   const [errorFechas, cambiarErrorFechas] = useState('')
+  const [informeAbierto, cambiarInformeAbierto] = useState(false)
   const puedeVerCliente = tienePermiso(cuenta.permisos, 'CLIENTES_VER')
 
   useEffect(() => {
@@ -248,9 +250,22 @@ export function MetricasCliente({
         </div>
       ) : metricas && (
         <div className="metricas-contenido">
-          <p className="metricas-periodo">
-            Del {fechaLegible(metricas.desde)} al {fechaLegible(metricas.hasta)}, inclusive.
-          </p>
+          <div className="metricas-periodo-acciones">
+            <p className="metricas-periodo">
+              Del {fechaLegible(metricas.desde)} al {fechaLegible(metricas.hasta)}, inclusive.
+            </p>
+            <button className="boton boton-secundario boton-chico detalle-accion metricas-informe-accion" type="button"
+              aria-expanded={informeAbierto} aria-controls="metricas-informe-editor"
+              onClick={() => cambiarInformeAbierto((abierto) => !abierto)}>
+              <Icono nombre="documento" tamano={18} />
+              <span>{informeAbierto ? 'Cerrar informe' : 'Crear informe'}</span>
+            </button>
+          </div>
+
+          {informeAbierto && (
+            <InformeMetricas key={`${cuenta.usuario}:${clienteUuid}`} metricas={metricas}
+              cliente={cliente} cuenta={cuenta} alCerrar={() => cambiarInformeAbierto(false)} />
+          )}
 
           <section className="metricas-seccion" aria-labelledby="metricas-resumen-titulo">
             <h2 id="metricas-resumen-titulo">Resumen del período</h2>
