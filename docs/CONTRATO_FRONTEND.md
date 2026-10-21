@@ -514,11 +514,18 @@ OpenAI recibe el texto original con búsqueda web opcional (`tool_choice: "auto"
     "evaluaciones": 2,
     "menciones": 1,
     "tasaMencion": 50.00
+  }],
+  "consultasMencionadas": [{
+    "consultaUuid": "66666666-6666-4666-8666-666666666666",
+    "textoConsulta": "¿Qué taller conviene?",
+    "mencionesMarca": 1
   }]
 }
 ```
 
 La serie tiene una sola entrada por día con ejecuciones, aunque se hayan usado Sol y Luna; `modelosAnalizados` informa cuántas mediciones completas aportó cada modelo. Solo entran al denominador las ejecuciones `FINALIZADO` con normalización `FINALIZADA` y resultado guardado. `pendientes` y `fallidas` se informan aparte. Una respuesta cuenta una sola vez en `conCitas` si cita alguna fuente, y una sola vez en `conCitasSitioCliente` si cita el dominio del sitio del cliente o un subdominio. Las tasas son porcentajes entre 0 y 100 con dos decimales; cuando el denominador es cero llegan como `null`, no como cero. La tasa de mención combina todas las consultas, incluso las que nombran la marca: no debe rotularse como presencia espontánea. Cada competidor usa como denominador las respuestas en las que fue evaluado, por lo que puede diferir del total del cliente. Los días sin ejecuciones no aparecen en `serieDiaria`.
+
+`consultasMencionadas` agrupa por UUID de consulta las respuestas del período que nombraron la marca. Cada ejecución terminada y normalizada suma como máximo una mención, aunque el nombre aparezca varias veces en el texto. Solo incluye consultas con `mencionesMarca > 0`, ordenadas de mayor a menor; si no hubo menciones, devuelve `[]`. Conserva consultas dadas de baja que tuvieron mediciones dentro del rango. La suma de sus conteos coincide con `mencionesMarca` del cliente.
 
 Se preservan mediciones de consultas luego dadas de baja. Los registros antiguos que quedaron sin `diaEjecucion` durante V13 no participan en estas métricas para evitar duplicados del mismo día. Las tasas se calculan al pedirlas, sin caché ni tabla de métricas. La comparación de citas propias usa el sitio web actual del cliente; si más adelante se permite editarlo, habrá que conservar el dominio por ejecución para mantener la clasificación histórica.
 

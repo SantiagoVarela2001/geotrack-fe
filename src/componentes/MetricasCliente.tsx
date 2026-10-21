@@ -4,6 +4,7 @@ import type {
   DatosCliente,
   DatosCuenta,
   DatosMetricasCliente,
+  DatosMetricasConsultaMencionada,
 } from '../api/tipos'
 import { obtenerMensajeError, tienePermiso } from '../utilidades'
 import { Aviso, Icono } from './Comun'
@@ -73,6 +74,19 @@ function Indicador({
       <dd>{valor}</dd>
       {descripcion && <small>{descripcion}</small>}
     </div>
+  )
+}
+
+function ListaConsultasMencionadas({ consultas }: { consultas: DatosMetricasConsultaMencionada[] }) {
+  return (
+    <ul className="metricas-competidores metricas-consultas-mencionadas">
+      {consultas.map((consulta) => (
+        <li key={consulta.consultaUuid}>
+          <strong>{consulta.textoConsulta}</strong>
+          <span><b>{enteros.format(consulta.mencionesMarca)}</b> {consulta.mencionesMarca === 1 ? 'mención' : 'menciones'}</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -173,6 +187,11 @@ export function MetricasCliente({
     cambiarCargando(true)
     cambiarPeriodo({ ...periodo })
   }
+
+  const consultasMencionadas = [...(metricas?.consultasMencionadas ?? [])]
+    .sort((a, b) => b.mencionesMarca - a.mencionesMarca ||
+      a.textoConsulta.localeCompare(b.textoConsulta, 'es'))
+  const restantes = consultasMencionadas.length - 5
 
   return (
     <div className="pagina-metricas">
@@ -292,6 +311,28 @@ export function MetricasCliente({
               No representa presencia espontánea. Las citas propias se comparan con el sitio web
               actual del cliente.
             </p>
+          </section>
+
+          <section className="metricas-seccion" aria-labelledby="metricas-consultas-titulo">
+            <h2 id="metricas-consultas-titulo">Consultas que mencionaron la marca</h2>
+            {consultasMencionadas.length === 0 ? (
+              <p className="metricas-vacio">No hubo consultas con menciones de marca en este período.</p>
+            ) : (
+              <>
+                <ListaConsultasMencionadas consultas={consultasMencionadas.slice(0, 5)} />
+                {restantes > 0 && (
+                  <details className="metricas-consultas-restantes"
+                    key={`${metricas.clienteUuid}:${metricas.desde}:${metricas.hasta}`}>
+                    <summary>
+                      <span className="metricas-consultas-cerrado">Ver {enteros.format(restantes)} {restantes === 1 ? 'consulta restante' : 'consultas restantes'}</span>
+                      <span className="metricas-consultas-abierto">Ocultar {enteros.format(restantes)} {restantes === 1 ? 'consulta restante' : 'consultas restantes'}</span>
+                    </summary>
+                    <ListaConsultasMencionadas consultas={consultasMencionadas.slice(5)} />
+                  </details>
+                )}
+              </>
+            )}
+            <p className="metricas-nota">Cada respuesta analizada cuenta como máximo una mención por consulta, aunque nombre la marca varias veces.</p>
           </section>
 
           <section className="metricas-seccion" aria-labelledby="metricas-serie-titulo">

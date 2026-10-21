@@ -145,6 +145,10 @@ export function InformeMetricas({ metricas, cliente, cuenta, alCerrar }: {
   const competidores = [...metricas.competidores]
     .sort((primero, segundo) => segundo.menciones - primero.menciones ||
       primero.nombre.localeCompare(segundo.nombre, 'es'))
+  const consultasMencionadas = [...metricas.consultasMencionadas]
+    .sort((a, b) => b.mencionesMarca - a.mencionesMarca ||
+      a.textoConsulta.localeCompare(b.textoConsulta, 'es'))
+    .slice(0, 5)
 
   useEffect(() => {
     if (!urlLogo) return
@@ -302,6 +306,29 @@ export function InformeMetricas({ metricas, cliente, cuenta, alCerrar }: {
           <section className="informe-bloque">
             <h2>Evolución diaria de menciones</h2>
             <GraficoInforme metricas={metricas} />
+          </section>
+
+          <section className="informe-bloque">
+            <h2>Consultas con más menciones de marca</h2>
+            {consultasMencionadas.length === 0 ? (
+              <p className="informe-vacio">No hubo consultas con menciones de marca en este período.</p>
+            ) : (
+              <table className="informe-tabla">
+                <thead><tr>
+                  <th scope="col">Consulta</th>
+                  <th scope="col">Respuestas con mención</th>
+                </tr></thead>
+                <tbody>{consultasMencionadas.map((consulta) => (
+                  <tr key={consulta.consultaUuid}>
+                    <th scope="row">{consulta.textoConsulta}</th>
+                    <td>{enteros.format(consulta.mencionesMarca)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+            {metricas.consultasMencionadas.length > 5 && (
+              <p className="informe-nota">Se muestran las cinco consultas con más menciones.</p>
+            )}
           </section>
 
           <section className="informe-bloque">

@@ -185,6 +185,12 @@ export interface DatosMetricasCompetidor {
   tasaMencion: number | null
 }
 
+export interface DatosMetricasConsultaMencionada {
+  consultaUuid: string
+  textoConsulta: string
+  mencionesMarca: number
+}
+
 export interface DatosMetricasCliente {
   clienteUuid: string
   desde: string
@@ -201,6 +207,7 @@ export interface DatosMetricasCliente {
   tasaCitasSitioCliente: number | null
   serieDiaria: DatosMetricasDia[]
   competidores: DatosMetricasCompetidor[]
+  consultasMencionadas: DatosMetricasConsultaMencionada[]
 }
 
 export interface DatosAnalisisSemanal {

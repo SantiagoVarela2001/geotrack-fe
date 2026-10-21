@@ -1353,6 +1353,34 @@
   color: #718494;
   font-size: 11px;
 }
+.metricas-consultas-mencionadas li > strong {
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.metricas-consultas-restantes {
+  margin-top: 10px;
+}
+.metricas-consultas-restantes summary {
+  width: fit-content;
+  color: #137d8a;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.metricas-consultas-restantes summary:focus-visible {
+  outline: 2px solid #137d8a;
+  outline-offset: 3px;
+}
+.metricas-consultas-restantes .metricas-consultas-abierto,
+.metricas-consultas-restantes[open] .metricas-consultas-cerrado {
+  display: none;
+}
+.metricas-consultas-restantes[open] .metricas-consultas-abierto {
+  display: inline;
+}
+.metricas-consultas-restantes .metricas-consultas-mencionadas {
+  margin-top: 8px;
+}
 .metricas-diario {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
@@ -4619,6 +4647,7 @@
   }
   .informe-tabla thead th { color: #456376; background: #f0f6f8; }
   .informe-tabla td:not(:first-child), .informe-tabla thead th:not(:first-child) { text-align: right; }
+  .informe-tabla th[scope='row'] { overflow-wrap: anywhere; }
   .informe-resumen-ejecutivo p {
     margin: 0;
     white-space: pre-wrap;
