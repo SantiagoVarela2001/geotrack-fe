@@ -2828,6 +2828,7 @@
   margin-top: -3px;
 }
 .consulta-detalle-boton,
+.consulta-editar-boton,
 .consulta-ejecutar-boton {
   flex: none;
   padding: 5px 8px;
@@ -2845,6 +2846,19 @@
 .consulta-detalle-boton:focus-visible {
   border-color: #c9e1ed;
   background: #edf7fb;
+}
+.consulta-editar-boton {
+  border: 1px solid #279680;
+  background: #e9f7f1;
+  color: #15624f;
+}
+.consulta-editar-boton:hover:not(:disabled) {
+  border-color: #187562;
+  background: #ceeee2;
+}
+.consulta-editar-boton:focus-visible {
+  outline: 2px solid #187562;
+  outline-offset: 2px;
 }
 .consulta-ejecutar-boton {
   border: 1px solid #b5d7e4;
@@ -2917,6 +2931,12 @@
 }
 .dialogo-tipo-contenido {
   padding: 26px;
+}
+.dialogo-editar-consulta {
+  width: 560px;
+}
+.dialogo-editar-consulta .formulario {
+  margin-top: 20px;
 }
 .dialogo-tipo-icono {
   width: 48px;

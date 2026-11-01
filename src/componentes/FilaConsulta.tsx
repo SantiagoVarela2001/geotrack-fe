@@ -25,6 +25,7 @@ export function FilaConsulta({
   nombreTema,
   alAlternar,
   alCambiarTipo,
+  alEditar,
   alAbrirDetalle,
   alVerEjecucionHoy,
   alEjecutar,
@@ -38,6 +39,7 @@ export function FilaConsulta({
   nombreTema?: string
   alAlternar?: () => void
   alCambiarTipo?: () => void
+  alEditar?: () => void
   alAbrirDetalle?: () => void
   alVerEjecucionHoy?: (ejecucionUuid: string) => void
   alEjecutar?: () => void
@@ -99,6 +101,17 @@ export function FilaConsulta({
         <p>{consulta.texto}</p>
       </div>
       <div className="consulta-acciones">
+        {consulta.estadoConsulta === 'BORRADOR' && alEditar && (
+          <button
+            className="consulta-editar-boton"
+            type="button"
+            onClick={alEditar}
+            disabled={accionesBloqueadas}
+            aria-label={`Editar consulta ${indice + 1}${nombreTema ? ` de ${nombreTema}` : ''}`}
+          >
+            Editar
+          </button>
+        )}
         {consulta.estadoConsulta === 'APROBADA' && alEjecutar && (
           <button
             className="consulta-ejecutar-boton"

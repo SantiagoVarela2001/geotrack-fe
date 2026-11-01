@@ -9,6 +9,7 @@ import type {
   DatosTema,
   DatosTemaConConsultas,
   SolicitudCrearConsulta,
+  SolicitudEditarConsulta,
 } from '../api/tipos'
 import { obtenerMensajeError, tienePermiso, urlWebSegura } from '../utilidades'
 import { AccionesConsultas } from './AccionesConsultas'
@@ -16,6 +17,7 @@ import { Aviso, EtiquetaEstado, Icono, Vacio } from './Comun'
 import { ConfirmarEstadoCliente } from './ConfirmarEstadoCliente'
 import { GestionCompetidores } from './GestionCompetidores'
 import { ConfirmarTipoConsulta } from './ConfirmarTipoConsulta'
+import { EditarConsulta } from './EditarConsulta'
 import { FilaConsulta } from './FilaConsulta'
 import { GeneracionConsultas } from './GeneracionConsultas'
 import { ProgresoEjecuciones, type EnvioConsulta } from './ProgresoEjecuciones'
@@ -102,6 +104,8 @@ export function DetalleCliente({
     null,
   )
   const [cambiandoTipo, cambiarCambiandoTipo] = useState(false)
+  const [consultaParaEditar, definirConsultaParaEditar] = useState<DatosConsulta | null>(null)
+  const [errorEdicion, cambiarErrorEdicion] = useState('')
   const [generando, cambiarGenerando] = useState(false)
   const [revisionInicial, cambiarRevisionInicial] = useState(0)
   const [revisionTemas, cambiarRevisionTemas] = useState(0)
@@ -120,6 +124,7 @@ export function DetalleCliente({
   const puedeCrearTema = activo && tienePermiso(cuenta.permisos, 'TEMAS_CREAR')
   const puedeEditarTema = activo && tienePermiso(cuenta.permisos, 'TEMAS_EDITAR')
   const puedeCrearConsulta = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_CREAR')
+  const puedeEditarConsulta = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_EDITAR')
   const puedeGenerar =
     puedeCrearConsulta && puedeVerConsultas && (!generacion || generacion.estado === 'FALLIDO')
   const mostrarPanelGeneracion =
@@ -694,6 +699,82 @@ export function DetalleCliente({
     }
   }
 
+  function solicitarEdicion(consulta: DatosConsulta) {
+    if (
+      !puedeEditarConsulta ||
+      consulta.estadoConsulta !== 'BORRADOR' ||
+      consulta.clienteUuid !== clienteUuid ||
+      guardando ||
+      cambiandoTipo ||
+      confirmarBaja ||
+      cambiandoEstadoCliente ||
+      cargandoTemas ||
+      errorTemas
+    ) {
+      return
+    }
+    cambiarErrorEdicion('')
+    cambiarErrorAccion('')
+    cambiarMensajeAccion('')
+    definirConsultaParaEditar(consulta)
+  }
+
+  /** Aplica la respuesta por UUID y mueve la consulta si el servidor cambió su tema. */
+  async function guardarEdicion(datos: SolicitudEditarConsulta) {
+    const consulta = consultaParaEditar
+    if (
+      !consulta ||
+      !puedeEditarConsulta ||
+      consulta.estadoConsulta !== 'BORRADOR' ||
+      guardando ||
+      !datos.texto.trim() ||
+      datos.texto.length > 2000 ||
+      !temas.some((tema) => tema.uuid === datos.temaUuid)
+    ) {
+      return
+    }
+    cambiarGuardando(true)
+    cambiarErrorEdicion('')
+    try {
+      const actualizada = await api.consultas.editar(clienteUuid, consulta.uuid, datos)
+      cambiarConsultas((actuales) =>
+        actuales
+          .map((item) => item.uuid === actualizada.uuid ? { ...item, ...actualizada } : item)
+          .filter((item) => item.temaUuid === temaUuid),
+      )
+      cambiarTemasAgrupados((actuales) => {
+        if (!actuales) return null
+        const anterior = actuales.flatMap((tema) => tema.consultas)
+          .find((item) => item.uuid === actualizada.uuid)
+        return actuales.map((tema) => {
+          if (tema.uuid !== actualizada.temaUuid) {
+            return { ...tema, consultas: tema.consultas.filter((item) => item.uuid !== actualizada.uuid) }
+          }
+          const yaIncluida = tema.consultas.some((item) => item.uuid === actualizada.uuid)
+          return {
+            ...tema,
+            consultas: yaIncluida
+              ? tema.consultas.map((item) =>
+                item.uuid === actualizada.uuid ? { ...item, ...actualizada } : item,
+              )
+              : [...tema.consultas, { ejecucionHoy: null, ...anterior, ...actualizada }],
+          }
+        })
+      })
+      // Invalida lecturas en curso para que un sondeo anterior no restaure datos viejos.
+      cambiarRevisionConsultas((actual) => actual + 1)
+      cambiarRevisionAgrupados((actual) => actual + 1)
+      cambiarSeleccionadas([])
+      cambiarMensajeAccion('Consulta actualizada. Continúa en borrador.')
+      definirConsultaParaEditar(null)
+    } catch (causa) {
+      // Mantiene los datos del formulario y muestra el detalle devuelto por la API.
+      cambiarErrorEdicion(obtenerMensajeError(causa))
+    } finally {
+      cambiarGuardando(false)
+    }
+  }
+
   function solicitarCambioTipo(consulta: DatosConsulta) {
     if (
       !puedeCambiarTipo ||
@@ -1155,6 +1236,8 @@ export function DetalleCliente({
                     puedeCambiarTipo={puedeCambiarTipo}
                     cambioTipoBloqueado={guardando || cambiandoTipo || confirmarBaja}
                     alSolicitarCambioTipo={solicitarCambioTipo}
+                    puedeEditar={puedeEditarConsulta && !cargandoTemas && !errorTemas}
+                    alEditar={solicitarEdicion}
                     alAbrirDetalle={abrirDetalleConsulta}
                     alAbrirEjecucionHoy={(consulta, temaUuid, ejecucionUuid) =>
                       alAbrirEjecucion(consulta, temaUuid, false, ejecucionUuid)
@@ -1335,6 +1418,8 @@ export function DetalleCliente({
                                 }
                                 cambioTipoBloqueado={guardando || cambiandoTipo || confirmarBaja}
                                 alAbrirDetalle={() => abrirDetalleConsulta(consulta, temaUuid)}
+                                alEditar={puedeEditarConsulta && !cargandoTemas && !errorTemas
+                                  ? () => solicitarEdicion(consulta) : undefined}
                                 alVerEjecucionHoy={(ejecucionUuid) =>
                                   alAbrirEjecucion(consulta, temaUuid, false, ejecucionUuid)
                                 }
@@ -1472,6 +1557,16 @@ export function DetalleCliente({
               )}
             </section>
           </div>
+          {consultaParaEditar && (
+            <EditarConsulta
+              consulta={consultaParaEditar}
+              temas={temas}
+              enviando={guardando}
+              error={errorEdicion}
+              alCancelar={() => definirConsultaParaEditar(null)}
+              alGuardar={(datos) => void guardarEdicion(datos)}
+            />
+          )}
           {consultaParaCambiarTipo && (
             <ConfirmarTipoConsulta
               consulta={consultaParaCambiarTipo}

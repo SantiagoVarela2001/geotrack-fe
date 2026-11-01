@@ -20,6 +20,7 @@ import type {
   SolicitudCrearCliente,
   SolicitudCrearConsulta,
   SolicitudCrearOrganizacion,
+  SolicitudEditarConsulta,
 } from './tipos'
 
 let tokenAcceso: string | null = null
@@ -312,6 +313,14 @@ export const api = {
     obtener: (clienteUuid: string, temaUuid: string, consultaUuid: string) =>
       solicitar<DatosConsulta>(
         `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/temas/${encodeURIComponent(temaUuid)}/consultas/${encodeURIComponent(consultaUuid)}`,
+      ),
+    editar: (clienteUuid: string, consultaUuid: string, datos: SolicitudEditarConsulta) =>
+      solicitar<DatosConsulta>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/consultas/${encodeURIComponent(consultaUuid)}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(datos),
+        },
       ),
     cambiarTipo: (
       clienteUuid: string,

@@ -1,13 +1,13 @@
 # Contrato para el frontend
 
-Estado documentado al 16 de octubre de 2026. Este documento describe la API implementada y los contratos acordados para los cambios de estado, la gestión de competidores, el análisis semanal manual y los gastos estimados de IA. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
+Estado documentado al 31 de octubre de 2026. Este documento describe la API implementada y los contratos acordados para la edición de consultas en borrador, los cambios de estado, la gestión de competidores, el análisis semanal manual y los gastos estimados de IA. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
 
 ## Qué puede construir el frontend ahora
 
 - Inicio y cierre de sesión, renovación del acceso y consulta de la cuenta actual.
 - Para `SYSADMIN` con los permisos correspondientes: lectura de planes, alta y listado de organizaciones, alta, listado, baja y reactivación de usuarios, y gastos estimados de IA por organización.
 - Para `PROPIETARIO` con los permisos correspondientes: alta, listado, baja y reactivación de usuarios de su propia organización. Todas las cuentas pueden consultar y actualizar su perfil y cambiar su contraseña.
-- Para usuarios de organización: alta, lectura, archivo y reactivación de clientes monitoreados; alta, lectura y baja lógica de competidores; alta, lectura y cambio de nombre de temas; alta, lectura, aprobación y baja lógica de consultas.
+- Para usuarios de organización: alta, lectura, archivo y reactivación de clientes monitoreados; alta, lectura y baja lógica de competidores; alta, lectura y cambio de nombre de temas; alta, lectura, edición de borradores, aprobación y baja lógica de consultas.
 - Para usuarios de organización con CONSULTAS_CREAR: generación asistida de quince borradores por cliente y consulta de su proceso.
 - Para usuarios con `CONSULTAS_VER`: lectura de ejecuciones manuales y métricas GEO agregadas por cliente y período.
 - Para usuarios con `ANALISIS_SEMANALES_VER`: lectura del último análisis semanal, de cada proceso y del historial paginado. Los usuarios de organización con `ANALISIS_SEMANALES_CREAR` pueden iniciar un análisis manual.
@@ -96,6 +96,7 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 | `GET /api/clientes-monitoreados/{clienteUuid}/temas/{temaUuid}/consultas` | — | `200 DatosConsulta[]` | `CONSULTAS_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/temas/{temaUuid}/consultas/{consultaUuid}` | — | `200 DatosConsulta` | `CONSULTAS_VER` |
 | `PATCH /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}/tipo` | `SolicitudCambiarTipoConsulta` | `200 DatosConsulta` | `CONSULTAS_CAMBIAR_TIPO` |
+| `PUT /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}` | `SolicitudEditarConsulta` | `200 DatosConsulta` | `CONSULTAS_EDITAR` |
 | `POST /api/clientes-monitoreados/{clienteUuid}/consultas/aprobaciones` | Array de UUID | `200 DatosConsulta[]` | `CONSULTAS_APROBAR` |
 | `POST /api/clientes-monitoreados/{clienteUuid}/consultas/bajas` | Array de UUID | `204` | `CONSULTAS_ELIMINAR` |
 | `POST /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}/ejecuciones` | — | `202 DatosEjecucionConsulta` | `CONSULTAS_EJECUTAR` |
@@ -351,6 +352,23 @@ Devuelve `201` con un array `DatosConsulta[]` en el orden enviado. Cada consulta
 
 El array no puede estar vacío. Un cliente admite **15 consultas activas en total**, sumando todos sus temas; dar de baja libera cupo. Dentro de un tema, una consulta activa no puede repetir texto y tipo de otra, ignorando mayúsculas y espacios exteriores. Si falla un elemento o no alcanza el cupo, no se guarda ninguno. El cliente y el tema deben estar activos.
 
+### Edición de consultas en borrador
+
+`PUT /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}` recibe los cuatro campos obligatorios:
+
+```json
+{
+  "texto": "¿Qué software recomendás para talleres de Córdoba?",
+  "temaUuid": "55555555-5555-4555-8555-555555555555",
+  "prioridad": "ALTA",
+  "tipoConsulta": "DESCUBRIMIENTO"
+}
+```
+
+Requiere `CONSULTAS_EDITAR`, obtenido de `GET /api/autenticacion/actual`. Solo permite editar consultas en `BORRADOR`. El formulario usa los temas del mismo cliente, texto de hasta 2000 caracteres, prioridad `ALTA`, `MEDIA` o `BAJA` y tipo `REFERENCIA` o `DESCUBRIMIENTO`. El frontend habilita la edición para cuentas de organización y clientes activos; el backend conserva la autorización final.
+
+Devuelve `200` con la consulta actualizada en formato `DatosConsulta`, conservando su identidad y cupo. El backend registra al editor y la fecha; esos datos no se envían desde el frontend. Si cambia `temaUuid`, la interfaz mueve la consulta al tema devuelto por el servidor. Los errores se muestran en el formulario conservando los valores ingresados.
+
 ### Cambio de tipo en borrador
 
 `PATCH /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}/tipo` recibe:
@@ -373,7 +391,7 @@ Ambos endpoints reciben **directamente un array de UUID** de consultas de cualqu
 
 `POST .../consultas/aprobaciones` solo admite consultas activas en `BORRADOR`, dentro de temas y cliente activos. Devuelve `200` con `DatosConsulta[]` de **las consultas del lote**, en el orden solicitado y con `estadoConsulta: "APROBADA"`. El frontend puede reemplazar por UUID las entradas que ya muestra. El tipo `REFERENCIA` o `DESCUBRIMIENTO` no cambia.
 
-`POST .../consultas/bajas` devuelve `204` sin body. La baja es lógica: la consulta desaparece de las rutas de lectura y libera un lugar del cupo. No hay edición de texto, prioridad o tema; para reemplazarlos, dar de baja la consulta y crear otra. El tipo solo puede cambiarse mientras la consulta siga en `BORRADOR`.
+`POST .../consultas/bajas` devuelve `204` sin body. La baja es lógica: la consulta desaparece de las rutas de lectura y libera un lugar del cupo. Texto, prioridad, tema y tipo pueden editarse con el `PUT` de consultas mientras la consulta siga en `BORRADOR`; el tipo también conserva su endpoint específico.
 
 Las dos operaciones validan el lote entero antes de cambiar registros. Un UUID inexistente, inactivo o de otro cliente/organización produce `404` y no cambia ninguna consulta; uno repetido o `null` produce `400`. Aprobar una consulta ya aprobada o perteneciente a un tema dado de baja produce `409`; un cliente `ARCHIVADO` también bloquea estas escrituras con `409`. Los clientes archivados conservan lectura.
 

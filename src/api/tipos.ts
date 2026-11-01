@@ -17,6 +17,7 @@ export type Permiso =
   | 'TEMAS_VER'
   | 'TEMAS_EDITAR'
   | 'CONSULTAS_CREAR'
+  | 'CONSULTAS_EDITAR'
   | 'CONSULTAS_VER'
   | 'CONSULTAS_CAMBIAR_TIPO'
   | 'CONSULTAS_APROBAR'
@@ -240,6 +241,11 @@ export interface Pagina<T> {
 }
 
 export type SolicitudCrearConsulta = Pick<DatosConsulta, 'texto' | 'tipoConsulta' | 'prioridad'>
+
+export type SolicitudEditarConsulta = Pick<
+  DatosConsulta,
+  'texto' | 'temaUuid' | 'prioridad' | 'tipoConsulta'
+>
 
 export interface DatosGeneracionConsultas {
   procesoUuid: string
