@@ -45,6 +45,14 @@ La imagen sirve archivos estáticos con Nginx y redirige `/api` al backend. No i
 
 La clasificación manual no se infiere del texto. Sus correcciones se aplican a nuevas mediciones; las anteriores y las que ya están en cola conservan su grupo. Los monitoreos programados quedan fuera de F02.
 
+## Novedades del producto
+
+Los anuncios se editan en `src/datos/novedades.ts`. Cada entrada requiere un `id` único, `titulo`, `descripcion`, `publicadaEn` y `expiraEn`. Usar fechas ISO con zona horaria explícita; por ejemplo, desde `2026-11-02T00:00:00-03:00` hasta `2026-11-04T00:00:00-03:00` son 48 horas. La publicación es inclusiva y el vencimiento exclusivo. Solo incluir información general del producto: el archivo forma parte del frontend público.
+
+Opcionalmente, `permisos` limita el anuncio a cuentas con al menos uno de esos permisos de `GET /api/autenticacion/actual`, y `tiposCuenta` restringe el tipo de cuenta. Si se omiten, el anuncio está disponible para cualquier cuenta autenticada durante su vigencia. Las fechas inválidas o los intervalos vacíos no se muestran.
+
+El botón flotante abre las novedades vigentes y permanece disponible después de leerlas. Si no hay ninguna, se oculta. Las fechas se comprueban con el reloj del dispositivo, también con la aplicación abierta y al volver a la pestaña. No usa almacenamiento del navegador ni endpoints adicionales. Agregar o modificar anuncios requiere desplegar el frontend; su vencimiento es automático.
+
 ## Verificación
 
 ```bash

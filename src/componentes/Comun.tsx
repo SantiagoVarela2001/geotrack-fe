@@ -23,6 +23,7 @@ type NombreIcono =
   | 'grafico'
   | 'puntos'
   | 'desplegar'
+  | 'megafono'
 
 export function Icono({
   nombre,
@@ -53,6 +54,11 @@ export function Icono({
       </>
     ),
     mas: <path d="M12 5v14M5 12h14" />,
+    megafono: (
+      <>
+        <path d="M4 9h4l11-5v16L8 15H4a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2ZM8 9v6m-3 0 2 6h4l-2-5m13-7v6" />
+      </>
+    ),
     puntos: <><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>,
     desplegar: <path d="m6 9 6 6 6-6" />,
     flecha: <path d="M5 12h14m-6-6 6 6-6 6" />,

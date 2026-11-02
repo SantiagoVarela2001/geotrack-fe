@@ -11,6 +11,7 @@ import { GastosIa } from './componentes/GastosIa'
 import { Ingreso } from './componentes/Ingreso'
 import { MetricasCliente } from './componentes/MetricasCliente'
 import { MiPerfil } from './componentes/MiPerfil'
+import { Novedades } from './componentes/Novedades'
 import { PaginaAnalisisSemanales } from './componentes/PaginaAnalisisSemanales'
 import { obtenerMensajeError, tienePermiso } from './utilidades'
 import './App.css'
@@ -614,6 +615,7 @@ function App() {
           GELAIA <span>·</span> ORGANIZACIÓN DE CONSULTAS GEO
         </footer>
       </div>
+      <Novedades key={`${cuenta.organizacionUuid ?? 'plataforma'}:${cuenta.usuario}`} cuenta={cuenta} />
     </div>
   )
 }
