@@ -2779,6 +2779,7 @@
 .consulta-etiquetas > span { display: inline-flex; align-items: center; }
 .consulta-etiquetas > span + span::before { content: "·"; margin: 0 8px; color: #b0bec8; }
 .consulta-clasificacion { color: #547284; font-weight: 650; }
+.consulta-referencia svg { flex: none; margin-right: 5px; color: #b58b35; }
 .consulta-estados { grid-area: estados; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
 .consulta-estados .etiqueta { padding: 4px 8px; font-size: 10px; font-weight: 650; }
 .consulta-ejecucion-hoy { display: inline-flex; align-items: center; gap: 5px; color: #738594; font-size: 11px; line-height: 1.4; }

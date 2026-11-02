@@ -92,7 +92,10 @@ export function FilaConsulta({
         <p>{consulta.texto}</p>
         <div className="consulta-etiquetas">
           <span className="consulta-clasificacion">{consulta.conMarca ? 'Con marca' : 'Sin marca'}</span>
-          <span>{esReferencia ? 'Referencia' : 'Descubrimiento'}</span>
+          <span className={esReferencia ? 'consulta-referencia' : undefined}>
+            {esReferencia && <Icono nombre="estrella" tamano={12} relleno />}
+            {esReferencia ? 'Referencia' : 'Descubrimiento'}
+          </span>
           <span>Prioridad {consulta.prioridad.toLowerCase()}</span>
         </div>
       </div>
