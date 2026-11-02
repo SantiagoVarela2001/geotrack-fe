@@ -10,6 +10,7 @@ function instalarApi(datos) {
     estadoGeneracion: datos.estadoGeneracion ?? 'FINALIZADO', sondeosGeneracion: 0, informeActual: datos.analisis,
     informeFinal: datos.analisis, sondeosAnalisis: 0, errorMetricas: 0,
   }
+  if (datos.ahoraNovedades !== undefined) Date.now = () => estado.ahoraNovedades
   window.fetch = async (entrada, opciones = {}) => {
     const ruta = String(entrada)
     if (!ruta.startsWith('/api/')) return nativo(entrada, opciones)
@@ -88,6 +89,40 @@ const ejecutable = await buscarNavegador()
 test('interacciones F02 en navegador real', { skip: !ejecutable && 'Configurar NAVEGADOR_PRUEBAS con Chrome, Edge o Chromium', timeout: 90000 }, async (t) => {
   const navegador = await abrirNavegador(ejecutable)
   t.after(() => navegador.cerrar())
+
+  await t.test('novedades: lectura, foco, reapertura y vencimiento con la aplicación abierta', async () => {
+    await cargar(navegador, `/clientes/${datos.clienteUuid}`, {
+      ahoraNovedades: Date.parse('2026-11-02T12:00:00-03:00'),
+      cuenta: { ...datos.cuenta, permisos: [...datos.cuenta.permisos, 'CONSULTAS_EDITAR'] },
+    })
+    await navegador.esperar(`document.querySelector('.novedades-flotante') !== null`)
+    await navegador.evaluar(`document.querySelector('.novedades-flotante').focus(); document.querySelector('.novedades-flotante').click()`)
+    await navegador.esperar(`document.querySelector('.dialogo-novedades[open]') !== null`)
+    assert.equal(await navegador.evaluar(`document.querySelectorAll('.novedad').length`), 3)
+    assert.equal(await navegador.evaluar(`document.activeElement.getAttribute('aria-label')`), 'Cerrar novedades')
+    await navegador.evaluar(pulsar('Entendido'))
+    await navegador.esperar(`document.querySelector('.dialogo-novedades') === null`)
+    assert.equal(await navegador.evaluar(`document.activeElement.classList.contains('novedades-flotante')`), true)
+    await navegador.evaluar(`document.querySelector('.novedades-flotante').click()`)
+    await navegador.esperar(`document.querySelector('.dialogo-novedades[open]') !== null`)
+    await navegador.evaluar(`document.querySelector('.dialogo-novedades').dispatchEvent(new Event('cancel', { cancelable: true }))`)
+    await navegador.esperar(`document.querySelector('.dialogo-novedades') === null`)
+    await navegador.evaluar(`document.querySelector('.novedades-flotante').click()`)
+    await navegador.esperar(`document.querySelector('.dialogo-novedades[open]') !== null`)
+    await navegador.ajustarPantalla(1440, 1000)
+    await navegador.capturar('novedades-escritorio.png')
+    await navegador.ajustarPantalla(390, 844)
+    assert.equal(await navegador.evaluar(`document.documentElement.scrollWidth <= window.innerWidth`), true)
+    assert.equal(await navegador.evaluar(`document.querySelector('.dialogo-novedades').getBoundingClientRect().height <= window.innerHeight`), true)
+    await navegador.capturar('novedades-movil.png')
+    // Acerca el vencimiento y deja avanzar el reloj: el temporizador debe cerrar sin recargar ni cambiar el foco.
+    await navegador.evaluar(`(() => {
+      const inicio = performance.now();
+      Date.now = () => Date.parse('2026-11-04T00:00:00-03:00') - 300 + performance.now() - inicio;
+      window.dispatchEvent(new Event('focus'));
+    })()`)
+    await navegador.esperar(`document.querySelector('.novedades-flotante') === null && document.querySelector('.dialogo-novedades') === null`)
+  })
 
   await t.test('aprobada: PATCH, errores sin cambio visual y restricciones de edición', async () => {
     await cargar(navegador, `/clientes/${datos.clienteUuid}`, { consulta: { ...datos.consulta, estadoConsulta: 'APROBADA' } })
