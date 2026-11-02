@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/clienteApi'
-import type { DatosAnalisisSemanal, DatosCliente, DatosCuenta, Pagina } from '../api/tipos'
+import type { BloqueInformeSemanal, DatosAnalisisSemanal, DatosCliente, DatosCuenta, Pagina } from '../api/tipos'
 import { obtenerMensajeError, tienePermiso } from '../utilidades'
 import { Aviso, Icono } from './Comun'
+import { esBloqueInforme, esInformeSeparado, formatoInforme } from '../informesSemanales'
+import { gruposMetricas } from '../metricas'
 
 const intervaloConsultaMs = 3000
 
@@ -30,20 +32,17 @@ function nombreEstado(estado: DatosAnalisisSemanal['estado']): string {
   return nombres[estado]
 }
 
-function ReferenciasEjecuciones({ uuids }: { uuids: string[] }) {
+function ReferenciasEjecuciones({ uuids, clienteUuid }: { uuids: string[]; clienteUuid: string }) {
   if (uuids.length === 0) return null
   return (
     <details className="analisis-referencias">
       <summary>{uuids.length} {uuids.length === 1 ? 'ejecución' : 'ejecuciones'} de la muestra</summary>
-      <ul>{uuids.map((uuid) => <li key={uuid}><code>{uuid}</code></li>)}</ul>
+      <ul>{uuids.map((uuid) => <li key={uuid}><a href={`#/clientes/${encodeURIComponent(clienteUuid)}/ejecuciones/${encodeURIComponent(uuid)}`}><code>{uuid}</code></a></li>)}</ul>
     </details>
   )
 }
 
-function InformeSemanal({ analisis }: { analisis: DatosAnalisisSemanal }) {
-  const informe = analisis.informe
-  if (!informe) return null
-
+function BloqueInforme({ informe, clienteUuid }: { informe: BloqueInformeSemanal; clienteUuid: string }) {
   return (
     <div className="analisis-informe">
       <div className="analisis-resumen">
@@ -60,7 +59,7 @@ function InformeSemanal({ analisis }: { analisis: DatosAnalisisSemanal }) {
               {informe.hallazgos.map((hallazgo, indice) => (
                 <li key={`${indice}-${hallazgo.descripcion}`}>
                   <p>{hallazgo.descripcion}</p>
-                  <ReferenciasEjecuciones uuids={hallazgo.ejecuciones} />
+                  <ReferenciasEjecuciones uuids={hallazgo.ejecuciones} clienteUuid={clienteUuid} />
                 </li>
               ))}
             </ol>
@@ -79,7 +78,7 @@ function InformeSemanal({ analisis }: { analisis: DatosAnalisisSemanal }) {
                     <span className="analisis-prioridad">{recomendacion.prioridad.toLowerCase()}</span>
                   </div>
                   <p>{recomendacion.accion}</p>
-                  <ReferenciasEjecuciones uuids={recomendacion.ejecuciones} />
+                  <ReferenciasEjecuciones uuids={recomendacion.ejecuciones} clienteUuid={clienteUuid} />
                 </li>
               ))}
             </ol>
@@ -88,6 +87,25 @@ function InformeSemanal({ analisis }: { analisis: DatosAnalisisSemanal }) {
       </div>
     </div>
   )
+}
+
+/** Se comprueba cada resultado, incluso después de reintentar un contexto antiguo. */
+export function InformeSemanal({ analisis }: { analisis: DatosAnalisisSemanal }) {
+  const informe = analisis.informe
+  const formato = formatoInforme(informe)
+  if (formato === 'ausente') return null
+  if (formato === 'invalido') return <Aviso>El informe recibido tiene un formato incompleto o desconocido. Volvé a consultar el análisis.</Aviso>
+  if (esInformeSeparado(informe)) return (
+    <div className="analisis-grupos">
+      {gruposMetricas.map((grupo) => (
+        <section key={grupo.clave} aria-label={grupo.etiqueta}>
+          <h2>{grupo.etiqueta} · {grupo.descripcion}</h2>
+          <BloqueInforme informe={informe[grupo.clave]} clienteUuid={analisis.clienteUuid} />
+        </section>
+      ))}
+    </div>
+  )
+  return esBloqueInforme(informe) ? <BloqueInforme informe={informe} clienteUuid={analisis.clienteUuid} /> : null
 }
 
 export function AnalisisSemanalesCliente({
@@ -347,11 +365,11 @@ export function AnalisisSemanalesCliente({
             <Aviso>{visible.mensaje || (visible.estado === 'FALLIDO'
               ? 'El análisis no se pudo completar.' : 'El análisis fue cancelado.')}</Aviso>
           )}
-          {visible.estado === 'FINALIZADO' && visible.informe && <InformeSemanal analisis={visible} />}
+          {visible.estado === 'FINALIZADO' && <InformeSemanal analisis={visible} />}
           {visible.estado === 'FINALIZADO' && visible.mensaje && (
             <Aviso tipo="informacion">{visible.mensaje}</Aviso>
           )}
-          {visible.estado === 'FINALIZADO' && !visible.informe && (
+          {visible.estado === 'FINALIZADO' && visible.informe === null && (
             <Aviso tipo="informacion">El proceso finalizó, pero todavía no hay un informe disponible.</Aviso>
           )}
         </section>
@@ -395,7 +413,8 @@ export function AnalisisSemanalesCliente({
                             aria-current={seleccionadoUuid === analisis.uuid ? 'true' : undefined}
                             onClick={() => verAnalisis(analisis.uuid)}>
                             <span><strong>{fechaCalendario(analisis.desde)} al {fechaCalendario(analisis.hasta)}</strong>
-                              <small>{fechaHora(analisis.fechaInicio) || 'Sin fecha de inicio'}</small></span>
+                              <small>{fechaHora(analisis.fechaInicio) || 'Sin fecha de inicio'}</small>
+                              {formatoInforme(analisis.informe) === 'invalido' && <small>Informe con formato inválido</small>}</span>
                             <span className={`analisis-estado analisis-estado-${analisis.estado.toLowerCase()}`}>
                               {nombreEstado(analisis.estado)}
                             </span>

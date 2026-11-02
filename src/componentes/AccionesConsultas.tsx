@@ -41,11 +41,11 @@ export function AccionesConsultas({
 }) {
   return (
     <>
-      <div className="consultas-herramientas">
+      <div className={`consultas-herramientas ${cantidadSeleccionadas > 0 ? 'consultas-herramientas-activa' : ''}`}>
         <div className="consultas-seleccion-resumen">
-          <span className="texto-secundario">
+          <span className="texto-secundario" role="status">
             {cantidadSeleccionadas
-              ? `${cantidadSeleccionadas} seleccionadas`
+              ? `${cantidadSeleccionadas} ${cantidadSeleccionadas === 1 ? 'seleccionada' : 'seleccionadas'}`
               : 'Seleccioná consultas para actuar por lote'}
           </span>
           <button
@@ -58,7 +58,7 @@ export function AccionesConsultas({
             {todosSeleccionados ? 'Deseleccionar todo' : 'Seleccionar todo'}
           </button>
         </div>
-        <div className="acciones-lote">
+        {cantidadSeleccionadas > 0 && <div className="acciones-lote" role="group" aria-label="Acciones de las consultas seleccionadas">
           {puedeEjecutar && (
             <button
               className="boton boton-primario boton-chico"
@@ -90,7 +90,7 @@ export function AccionesConsultas({
               {etiquetaBaja}
             </button>
           )}
-        </div>
+        </div>}
       </div>
       {puedeEjecutar && cantidadEjecutables > 0 && cantidadEjecutables < cantidadSeleccionadas && (
         <p className="consultas-ejecucion-nota">

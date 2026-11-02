@@ -97,6 +97,7 @@ export interface DatosConsulta {
   tipoConsulta: 'REFERENCIA' | 'DESCUBRIMIENTO'
   estadoConsulta: 'BORRADOR' | 'APROBADA'
   prioridad: 'ALTA' | 'MEDIA' | 'BAJA'
+  conMarca: boolean
 }
 
 export interface DatosEjecucionHoy {
@@ -169,6 +170,7 @@ export interface DatosMetricasDia {
   analizadas: number
   pendientes: number
   fallidas: number
+  canceladas: number
   mencionesMarca: number
   tasaMencionMarca: number | null
   conCitas: number
@@ -192,14 +194,12 @@ export interface DatosMetricasConsultaMencionada {
   mencionesMarca: number
 }
 
-export interface DatosMetricasCliente {
-  clienteUuid: string
-  desde: string
-  hasta: string
+export interface DatosMetricasGrupo {
   ejecuciones: number
   analizadas: number
   pendientes: number
   fallidas: number
+  canceladas: number
   mencionesMarca: number
   tasaMencionMarca: number | null
   conCitas: number
@@ -211,6 +211,32 @@ export interface DatosMetricasCliente {
   consultasMencionadas: DatosMetricasConsultaMencionada[]
 }
 
+export interface DatosMetricasCliente {
+  clienteUuid: string
+  desde: string
+  hasta: string
+  sinMarca: DatosMetricasGrupo
+  conMarca: DatosMetricasGrupo
+}
+
+export interface BloqueInformeSemanal {
+  resumen: string
+  hallazgos: { descripcion: string; ejecuciones: string[] }[]
+  recomendaciones: {
+    titulo: string
+    accion: string
+    prioridad: 'ALTA' | 'MEDIA' | 'BAJA'
+    ejecuciones: string[]
+  }[]
+}
+
+export interface InformeSemanalSeparado {
+  sinMarca: BloqueInformeSemanal
+  conMarca: BloqueInformeSemanal
+}
+
+export type InformeSemanal = BloqueInformeSemanal | InformeSemanalSeparado
+
 export interface DatosAnalisisSemanal {
   uuid: string
   clienteUuid: string
@@ -221,16 +247,7 @@ export interface DatosAnalisisSemanal {
   fechaFin: string | null
   intentos: number
   mensaje: string | null
-  informe: {
-    resumen: string
-    hallazgos: { descripcion: string; ejecuciones: string[] }[]
-    recomendaciones: {
-      titulo: string
-      accion: string
-      prioridad: 'ALTA' | 'MEDIA' | 'BAJA'
-      ejecuciones: string[]
-    }[]
-  } | null
+  informe: InformeSemanal | null
 }
 
 export interface Pagina<T> {
@@ -240,11 +257,11 @@ export interface Pagina<T> {
   totalElements: number
 }
 
-export type SolicitudCrearConsulta = Pick<DatosConsulta, 'texto' | 'tipoConsulta' | 'prioridad'>
+export type SolicitudCrearConsulta = Pick<DatosConsulta, 'texto' | 'tipoConsulta' | 'prioridad' | 'conMarca'>
 
 export type SolicitudEditarConsulta = Pick<
   DatosConsulta,
-  'texto' | 'temaUuid' | 'prioridad' | 'tipoConsulta'
+  'texto' | 'temaUuid' | 'prioridad' | 'tipoConsulta' | 'conMarca'
 >
 
 export interface DatosGeneracionConsultas {

@@ -39,12 +39,21 @@ La imagen sirve archivos estáticos con Nginx y redirige `/api` al backend. No i
 - Alta de consultas por lote, lectura individual y agrupada por tema, cambio de tipo en borradores, aprobación y baja lógica por lote.
 - Generación asistida de borradores con estado del proceso y actualización cada 3 segundos mientras está activo.
 - Ejecución manual de consultas aprobadas, recuperación del último intento, respuesta, citas y datos de uso.
+- F02: clasificación explícita con marca/sin marca en altas y ediciones, y corrección de clasificación de borradores y aprobadas con `CONSULTAS_EDITAR`.
+- Métricas por grupo histórico, presencia espontánea sin marca, exploración diaria y PDF separado.
+- Análisis semanal con informes separados o anteriores combinados, historial, reintentos y apertura de evidencias por ejecución.
 
-Todavía no hay métricas GEO de aparición de marca ni posición, monitoreos programados o recomendaciones. La organización para crear un usuario se elige del listado de organizaciones activas. Todavía no existe un listado de usuarios.
+La clasificación manual no se infiere del texto. Sus correcciones se aplican a nuevas mediciones; las anteriores y las que ya están en cola conservan su grupo. Los monitoreos programados quedan fuera de F02.
 
 ## Verificación
 
 ```bash
-pnpm build
+pnpm test
+pnpm typecheck
 pnpm lint
+pnpm build
 ```
+
+Las pruebas usan `node:test`, TypeScript y React ya instalados, sin dependencias adicionales. Cubren contratos HTTP, permisos, estados locales, renderizado y recorridos completos sobre una compilación de producción con API simulada exclusivamente en las pruebas.
+
+Las pruebas de navegador detectan Edge, Chrome o Chromium. Para otra ubicación, configurar `NAVEGADOR_PRUEBAS` con la ruta del ejecutable. Si no hay navegador, ese bloque se informa como omitido; las demás pruebas se ejecutan igualmente. Los perfiles y la compilación temporal quedan bajo `node_modules/.tmp` y no usan la API real.

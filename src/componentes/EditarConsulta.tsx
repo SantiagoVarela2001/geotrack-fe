@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { DatosConsulta, DatosTema, SolicitudEditarConsulta } from '../api/tipos'
 import { Aviso } from './Comun'
+import { clasificacionValida, leerClasificacion } from '../consultas'
 
 export function EditarConsulta({
   consulta,
@@ -23,6 +24,7 @@ export function EditarConsulta({
     temaUuid: consulta.temaUuid,
     prioridad: consulta.prioridad,
     tipoConsulta: consulta.tipoConsulta,
+    conMarca: consulta.conMarca,
   })
 
   /** El diálogo nativo contiene el foco y bloquea las acciones de fondo. */
@@ -37,7 +39,7 @@ export function EditarConsulta({
 
   function guardar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
-    if (enviando || !datos.texto.trim() || !temas.some((tema) => tema.uuid === datos.temaUuid)) return
+    if (enviando || !clasificacionValida(datos.conMarca) || !datos.texto.trim() || !temas.some((tema) => tema.uuid === datos.temaUuid)) return
     alGuardar({ ...datos, texto: datos.texto.trim() })
   }
 
@@ -114,6 +116,20 @@ export function EditarConsulta({
               </select>
             </label>
           </div>
+          <label>
+            Clasificación de la pregunta
+            <select required disabled={enviando}
+              value={clasificacionValida(datos.conMarca) ? datos.conMarca ? 'conMarca' : 'sinMarca' : ''}
+              onChange={(evento) => {
+                const conMarca = leerClasificacion(evento.target.value)
+                if (clasificacionValida(conMarca)) cambiarDatos({ ...datos, conMarca })
+              }}>
+              <option value="" disabled>Elegí una clasificación</option>
+              <option value="sinMarca">Sin marca</option>
+              <option value="conMarca">Con marca</option>
+            </select>
+          </label>
+          <p className="texto-secundario">El cambio aplica a nuevas mediciones. Las anteriores y las que ya están en cola conservan su clasificación.</p>
           {error && <Aviso>{error}</Aviso>}
           <div className="dialogo-tipo-acciones">
             <button className="boton boton-secundario" type="button" onClick={alCancelar} disabled={enviando}>
@@ -122,7 +138,7 @@ export function EditarConsulta({
             <button
               className="boton boton-primario"
               type="submit"
-              disabled={enviando || !datos.texto.trim() || !temas.some((tema) => tema.uuid === datos.temaUuid)}
+              disabled={enviando || !clasificacionValida(datos.conMarca) || !datos.texto.trim() || !temas.some((tema) => tema.uuid === datos.temaUuid)}
             >
               {enviando ? 'Guardando…' : 'Guardar cambios'}
             </button>

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../api/clienteApi'
-import type { DatosCliente, DatosCuenta, DatosMetricasCliente } from '../api/tipos'
+import type { DatosCliente, DatosCuenta, DatosMetricasCliente, DatosMetricasGrupo } from '../api/tipos'
 import { Aviso } from './Comun'
+import { alinearSeries, gruposMetricas, tasaLegible } from '../metricas'
 
 interface BorradorInforme {
   clienteUuid: string
@@ -12,10 +13,6 @@ interface BorradorInforme {
 }
 
 const enteros = new Intl.NumberFormat('es-AR')
-const porcentajes = new Intl.NumberFormat('es-AR', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
 const fechas = new Intl.DateTimeFormat('es-AR', {
   day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
 })
@@ -26,10 +23,6 @@ const fechaHoraArgentina = new Intl.DateTimeFormat('es-AR', {
 function fechaLegible(iso: string): string {
   const fecha = new Date(`${iso}T12:00:00Z`)
   return Number.isNaN(fecha.getTime()) ? iso : fechas.format(fecha)
-}
-
-function tasaLegible(valor: number | null): string {
-  return valor === null ? 'Sin datos' : `${porcentajes.format(valor)} %`
 }
 
 function imagenComoDataUrl(archivo: Blob): Promise<string> {
@@ -61,8 +54,15 @@ function leerBorrador(clave: string, clienteUuid: string, cuenta: DatosCuenta): 
   }
 }
 
-function GraficoInforme({ metricas }: { metricas: DatosMetricasCliente }) {
-  const dias = metricas.serieDiaria
+function GraficoInforme({ metricas, fechasCompartidas }: {
+  metricas: DatosMetricasGrupo
+  fechasCompartidas?: string[]
+}) {
+  const porDia = new Map(metricas.serieDiaria.map((dia) => [dia.dia, dia]))
+  const dias = fechasCompartidas
+    ? fechasCompartidas.map((dia) => ({ dia, mencionesMarca: porDia.get(dia)?.mencionesMarca ?? 0 }))
+    : metricas.serieDiaria
+  if (metricas.ejecuciones === 0) return <p className="informe-vacio">No hubo ejecuciones en el período.</p>
   if (dias.length === 0) return <p className="informe-vacio">No hubo ejecuciones en el período.</p>
 
   const ancho = 720
@@ -99,7 +99,7 @@ function GraficoInforme({ metricas }: { metricas: DatosMetricasCliente }) {
           </text>
         )}
       </svg>
-      <p>Cada punto representa un día con ejecuciones. Los días sin ejecuciones no aparecen.</p>
+      <p>Los grupos comparten las fechas del período. Los días sin ejecuciones tienen cero menciones; las tasas sin muestra conservan su ausencia.</p>
     </div>
   )
 }
@@ -116,6 +116,102 @@ function CifraInforme({ etiqueta, valor, detalle }: {
       {detalle && <small>{detalle}</small>}
     </div>
   )
+}
+
+export function BloquesInformeGrupo({ metricas, etiqueta, clave, fechasCompartidas }: {
+  metricas: DatosMetricasGrupo
+  etiqueta: string
+  clave: 'sinMarca' | 'conMarca'
+  fechasCompartidas?: string[]
+}) {
+  const competidores = [...metricas.competidores]
+    .sort((primero, segundo) => segundo.menciones - primero.menciones ||
+      primero.nombre.localeCompare(segundo.nombre, 'es'))
+  const consultasMencionadas = [...metricas.consultasMencionadas]
+    .sort((a, b) => b.mencionesMarca - a.mencionesMarca ||
+      a.textoConsulta.localeCompare(b.textoConsulta, 'es'))
+    .slice(0, 5)
+
+  return <section className="informe-grupo" aria-label={etiqueta}>
+    <h2>{etiqueta}</h2>
+    <section className="informe-bloque">
+      <h2>Actividad del período</h2>
+      <dl className="informe-cifras informe-cifras-cuatro">
+        <CifraInforme etiqueta="Ejecuciones" valor={enteros.format(metricas.ejecuciones)} />
+        <CifraInforme etiqueta="Analizadas" valor={enteros.format(metricas.analizadas)} />
+        <CifraInforme etiqueta="Pendientes" valor={enteros.format(metricas.pendientes)} />
+        <CifraInforme etiqueta="Fallidas" valor={enteros.format(metricas.fallidas)} />
+        <CifraInforme etiqueta="Canceladas" valor={enteros.format(metricas.canceladas)} />
+      </dl>
+    </section>
+
+    <section className="informe-bloque">
+      <h2>Visibilidad de marca y citas</h2>
+      <dl className="informe-cifras informe-cifras-tres">
+        <CifraInforme etiqueta={clave === 'sinMarca' ? 'Presencia espontánea' : 'Mención de marca'} valor={tasaLegible(metricas.tasaMencionMarca)}
+          detalle={`${enteros.format(metricas.mencionesMarca)} de ${enteros.format(metricas.analizadas)} analizadas`} />
+        <CifraInforme etiqueta="Respuestas con citas" valor={tasaLegible(metricas.tasaCitas)}
+          detalle={`${enteros.format(metricas.conCitas)} de ${enteros.format(metricas.analizadas)} analizadas`} />
+        <CifraInforme etiqueta="Citas al sitio propio" valor={tasaLegible(metricas.tasaCitasSitioCliente)}
+          detalle={`${enteros.format(metricas.conCitasSitioCliente)} de ${enteros.format(metricas.analizadas)} analizadas`} />
+      </dl>
+      <p className="informe-nota">Las métricas conservan la clasificación histórica de cada ejecución. Las citas al sitio propio se comparan con el dominio actual del cliente.</p>
+    </section>
+
+    <section className="informe-bloque">
+      <h2>Evolución diaria de menciones</h2>
+      <GraficoInforme metricas={metricas} fechasCompartidas={fechasCompartidas} />
+    </section>
+
+    <section className="informe-bloque">
+      <h2>Consultas con más menciones de marca</h2>
+      {consultasMencionadas.length === 0 ? (
+        <p className="informe-vacio">No hubo consultas con menciones de marca en este período.</p>
+      ) : (
+        <table className="informe-tabla">
+          <thead><tr>
+            <th scope="col">Consulta</th>
+            <th scope="col">Respuestas con mención</th>
+          </tr></thead>
+          <tbody>{consultasMencionadas.map((consulta) => (
+            <tr key={consulta.consultaUuid}>
+              <th scope="row">{consulta.textoConsulta}</th>
+              <td>{enteros.format(consulta.mencionesMarca)}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+      {metricas.consultasMencionadas.length > 5 && (
+        <p className="informe-nota">Se muestran las cinco consultas con más menciones de este grupo. El total incluye también las que quedan fuera del listado.</p>
+      )}
+    </section>
+
+    <section className="informe-bloque">
+      <h2>Competidores evaluados</h2>
+      {competidores.length === 0 ? (
+        <p className="informe-vacio">No hubo evaluaciones de competidores en este período.</p>
+      ) : (
+        <table className="informe-tabla">
+          <thead><tr>
+            <th scope="col">Competidor</th>
+            <th scope="col">Evaluaciones</th>
+            <th scope="col">Menciones</th>
+            <th scope="col">Tasa de mención</th>
+          </tr></thead>
+          <tbody>{competidores.map((competidor) => (
+            <tr key={competidor.competidorUuid}>
+              <th scope="row">{competidor.nombre}</th>
+              <td>{enteros.format(competidor.evaluaciones)}</td>
+              <td>{enteros.format(competidor.menciones)}</td>
+              <td>{tasaLegible(competidor.tasaMencion)}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+      <p className="informe-nota">La tasa de cada competidor usa solo las respuestas donde fue evaluado.</p>
+    </section>
+
+  </section>
 }
 
 export function InformeMetricas({ metricas, cliente, cuenta, alCerrar }: {
@@ -142,13 +238,7 @@ export function InformeMetricas({ metricas, cliente, cuenta, alCerrar }: {
   const estadoLogo = !urlLogo ? 'ausente' : logoVigente ? resultadoLogo.estado : 'cargando'
   const logoInforme = estadoLogo === 'listo' ? resultadoLogo?.imagen : null
   const nombreCliente = cliente?.nombre ?? `Cliente ${metricas.clienteUuid}`
-  const competidores = [...metricas.competidores]
-    .sort((primero, segundo) => segundo.menciones - primero.menciones ||
-      primero.nombre.localeCompare(segundo.nombre, 'es'))
-  const consultasMencionadas = [...metricas.consultasMencionadas]
-    .sort((a, b) => b.mencionesMarca - a.mencionesMarca ||
-      a.textoConsulta.localeCompare(b.textoConsulta, 'es'))
-    .slice(0, 5)
+  const fechasCompartidas = alinearSeries(metricas).map((dia) => dia.dia)
 
   useEffect(() => {
     if (!urlLogo) return
@@ -280,81 +370,11 @@ export function InformeMetricas({ metricas, cliente, cuenta, alCerrar }: {
             <div><span>Generado</span><strong>{fechaHoraArgentina.format(fechaGeneracion)}</strong></div>
           </div>
 
-          <section className="informe-bloque">
-            <h2>Actividad del período</h2>
-            <dl className="informe-cifras informe-cifras-cuatro">
-              <CifraInforme etiqueta="Ejecuciones" valor={enteros.format(metricas.ejecuciones)} />
-              <CifraInforme etiqueta="Analizadas" valor={enteros.format(metricas.analizadas)} />
-              <CifraInforme etiqueta="Pendientes" valor={enteros.format(metricas.pendientes)} />
-              <CifraInforme etiqueta="Fallidas" valor={enteros.format(metricas.fallidas)} />
-            </dl>
-          </section>
-
-          <section className="informe-bloque">
-            <h2>Visibilidad de marca y citas</h2>
-            <dl className="informe-cifras informe-cifras-tres">
-              <CifraInforme etiqueta="Mención de marca" valor={tasaLegible(metricas.tasaMencionMarca)}
-                detalle={`${enteros.format(metricas.mencionesMarca)} de ${enteros.format(metricas.analizadas)} analizadas`} />
-              <CifraInforme etiqueta="Respuestas con citas" valor={tasaLegible(metricas.tasaCitas)}
-                detalle={`${enteros.format(metricas.conCitas)} de ${enteros.format(metricas.analizadas)} analizadas`} />
-              <CifraInforme etiqueta="Citas al sitio propio" valor={tasaLegible(metricas.tasaCitasSitioCliente)}
-                detalle={`${enteros.format(metricas.conCitasSitioCliente)} de ${enteros.format(metricas.analizadas)} analizadas`} />
-            </dl>
-            <p className="informe-nota">La mención de marca incluye consultas que nombran la marca; no mide presencia espontánea. Las citas al sitio propio se comparan con el dominio actual del cliente.</p>
-          </section>
-
-          <section className="informe-bloque">
-            <h2>Evolución diaria de menciones</h2>
-            <GraficoInforme metricas={metricas} />
-          </section>
-
-          <section className="informe-bloque">
-            <h2>Consultas con más menciones de marca</h2>
-            {consultasMencionadas.length === 0 ? (
-              <p className="informe-vacio">No hubo consultas con menciones de marca en este período.</p>
-            ) : (
-              <table className="informe-tabla">
-                <thead><tr>
-                  <th scope="col">Consulta</th>
-                  <th scope="col">Respuestas con mención</th>
-                </tr></thead>
-                <tbody>{consultasMencionadas.map((consulta) => (
-                  <tr key={consulta.consultaUuid}>
-                    <th scope="row">{consulta.textoConsulta}</th>
-                    <td>{enteros.format(consulta.mencionesMarca)}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            )}
-            {metricas.consultasMencionadas.length > 5 && (
-              <p className="informe-nota">Se muestran las cinco consultas con más menciones.</p>
-            )}
-          </section>
-
-          <section className="informe-bloque">
-            <h2>Competidores evaluados</h2>
-            {competidores.length === 0 ? (
-              <p className="informe-vacio">No hubo evaluaciones de competidores en este período.</p>
-            ) : (
-              <table className="informe-tabla">
-                <thead><tr>
-                  <th scope="col">Competidor</th>
-                  <th scope="col">Evaluaciones</th>
-                  <th scope="col">Menciones</th>
-                  <th scope="col">Tasa de mención</th>
-                </tr></thead>
-                <tbody>{competidores.map((competidor) => (
-                  <tr key={competidor.competidorUuid}>
-                    <th scope="row">{competidor.nombre}</th>
-                    <td>{enteros.format(competidor.evaluaciones)}</td>
-                    <td>{enteros.format(competidor.menciones)}</td>
-                    <td>{tasaLegible(competidor.tasaMencion)}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            )}
-            <p className="informe-nota">La tasa de cada competidor usa solo las respuestas donde fue evaluado.</p>
-          </section>
+          {gruposMetricas.map((grupo) => (
+            <BloquesInformeGrupo key={grupo.clave} clave={grupo.clave}
+              etiqueta={`${grupo.etiqueta} · ${grupo.descripcion}`} metricas={metricas[grupo.clave]}
+              fechasCompartidas={fechasCompartidas} />
+          ))}
 
           <section className="informe-bloque informe-resumen-ejecutivo">
             <h2>Resumen ejecutivo</h2>

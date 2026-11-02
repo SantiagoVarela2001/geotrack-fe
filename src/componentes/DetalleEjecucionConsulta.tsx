@@ -74,10 +74,10 @@ async function cargarDatosPagina(
       ? api.ejecuciones.obtener(clienteUuid, ejecucionInicialUuid)
       : api.ejecuciones.obtenerUltima(clienteUuid, consultaUuid),
     puedeVerCliente ? api.clientes.obtener(clienteUuid) : Promise.resolve(null),
-    api.consultas.obtener(clienteUuid, temaUuid, consultaUuid),
+    temaUuid && consultaUuid ? api.consultas.obtener(clienteUuid, temaUuid, consultaUuid) : Promise.resolve(null),
   ])
   if (intento.status === 'rejected') throw intento.reason
-  if (ejecucionInicialUuid && intento.value?.consultaUuid !== consultaUuid) {
+  if (ejecucionInicialUuid && consultaUuid && intento.value?.consultaUuid !== consultaUuid) {
     throw new ErrorApi(404, 'La ejecución no corresponde a esta consulta.')
   }
   if (consulta.status === 'rejected' && !intento.value) throw consulta.reason
@@ -329,7 +329,8 @@ export function DetalleEjecucionConsulta({
     : iniciando
       ? 'Iniciando'
       : 'Sin ejecuciones'
-  const motivoNoEjecutable = !consulta
+  const soloEvidencia = Boolean(ejecucionInicialUuid && !consultaUuid)
+  const motivoNoEjecutable = soloEvidencia ? null : !consulta
     ? ejecucion
       ? errorContexto
         ? 'No se pudo verificar si la consulta sigue disponible para ejecutar.'
@@ -346,7 +347,7 @@ export function DetalleEjecucionConsulta({
   return (
     <div className="pagina-ejecucion" aria-labelledby="pagina-ejecucion-titulo">
       <button className="enlace-volver" type="button" onClick={alVolver}>
-        <Icono nombre="volver" tamano={17} /> Volver al tema
+        <Icono nombre="volver" tamano={17} /> {soloEvidencia ? 'Volver al análisis' : 'Volver al tema'}
       </button>
       <header className="ejecucion-cabecera">
         <div>
@@ -391,6 +392,7 @@ export function DetalleEjecucionConsulta({
                 : 'Descubrimiento'}
             </span>
             {ejecucion && <small>{ejecucion.nombreTema}</small>}
+            {consulta && <small>Clasificación actual de la consulta: {consulta.conMarca ? 'Con marca' : 'Sin marca'}. Las ejecuciones conservan su clasificación histórica.</small>}
             <p>{ejecucion?.textoConsulta ?? consulta?.texto}</p>
           </div>
         )}

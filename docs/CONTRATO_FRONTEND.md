@@ -1,6 +1,6 @@
 # Contrato para el frontend
 
-Estado documentado al 31 de octubre de 2026. Este documento describe la API implementada y los contratos acordados para la edición de consultas en borrador, los cambios de estado, la gestión de competidores, el análisis semanal manual y los gastos estimados de IA. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
+Contrato F02 actualizado al 1 de noviembre de 2026; las demás secciones conservan su documentación previa. Este documento describe la API implementada y los contratos acordados para la edición de consultas en borrador, los cambios de estado, la gestión de competidores, el análisis semanal manual y los gastos estimados de IA. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
 
 ## Qué puede construir el frontend ahora
 
@@ -96,13 +96,14 @@ El array de permisos es ilustrativo, no una lista exhaustiva. Para una cuenta de
 | `GET /api/clientes-monitoreados/{clienteUuid}/temas/{temaUuid}/consultas` | — | `200 DatosConsulta[]` | `CONSULTAS_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/temas/{temaUuid}/consultas/{consultaUuid}` | — | `200 DatosConsulta` | `CONSULTAS_VER` |
 | `PATCH /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}/tipo` | `SolicitudCambiarTipoConsulta` | `200 DatosConsulta` | `CONSULTAS_CAMBIAR_TIPO` |
+| `PATCH /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}/marca` | `SolicitudCambiarMarcaConsulta` | `200 DatosConsulta` | `CONSULTAS_EDITAR` |
 | `PUT /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}` | `SolicitudEditarConsulta` | `200 DatosConsulta` | `CONSULTAS_EDITAR` |
 | `POST /api/clientes-monitoreados/{clienteUuid}/consultas/aprobaciones` | Array de UUID | `200 DatosConsulta[]` | `CONSULTAS_APROBAR` |
 | `POST /api/clientes-monitoreados/{clienteUuid}/consultas/bajas` | Array de UUID | `204` | `CONSULTAS_ELIMINAR` |
 | `POST /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}/ejecuciones` | — | `202 DatosEjecucionConsulta` | `CONSULTAS_EJECUTAR` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/ejecuciones/{ejecucionUuid}` | — | `200 DatosEjecucionConsulta` | `CONSULTAS_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}/ejecuciones/ultima` | — | `200 DatosEjecucionConsulta` o `204` | `CONSULTAS_VER` |
-| `GET /api/clientes-monitoreados/{clienteUuid}/metricas?desde=AAAA-MM-DD&hasta=AAAA-MM-DD` | — | `200 DatosMetricasCliente` | `CONSULTAS_VER` |
+| `GET /api/clientes-monitoreados/{clienteUuid}/metricas?desde=AAAA-MM-DD&hasta=AAAA-MM-DD` | — | `200 DatosMetricasSeparadasCliente` | `CONSULTAS_VER` |
 | `POST /api/clientes-monitoreados/{clienteUuid}/analisis-semanales` | — | `202 DatosAnalisisSemanal` | `ANALISIS_SEMANALES_CREAR` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/analisis-semanales/ultimo` | — | `200 DatosAnalisisSemanal` o `204` | `ANALISIS_SEMANALES_VER` |
 | `GET /api/clientes-monitoreados/{clienteUuid}/analisis-semanales/{analisisUuid}` | — | `200 DatosAnalisisSemanal` | `ANALISIS_SEMANALES_VER` |
@@ -285,7 +286,7 @@ El nombre es obligatorio y admite hasta 200 caracteres. No puede haber dos temas
 
 ### Vista agrupada por tema
 
-`GET /api/clientes-monitoreados/{clienteUuid}/consultas/por-tema` devuelve todos los temas activos del cliente y sus consultas activas en una sola respuesta. Incluye los temas sin consultas con `consultas: []`; si el cliente no tiene temas, devuelve `[]`. Los temas se ordenan por nombre y las consultas de cada tema, desde la más reciente. Cada consulta usa `DatosConsultaConEjecucionHoy`: conserva los campos de `DatosConsulta` y agrega `ejecucionHoy`:
+`GET /api/clientes-monitoreados/{clienteUuid}/consultas/por-tema` devuelve todos los temas activos del cliente y sus consultas activas en una sola respuesta. Incluye los temas sin consultas con `consultas: []`; si el cliente no tiene temas, devuelve `[]`. Los temas se ordenan por nombre y las consultas de cada tema, desde la más reciente. Cada consulta usa `DatosConsultaConEjecucionHoy`: conserva los campos de `DatosConsulta` y agrega `ejecucionHoy`.
 
 ```json
 [
@@ -302,6 +303,7 @@ El nombre es obligatorio y admite hasta 200 caracteres. No puede haber dos temas
         "tipoConsulta": "REFERENCIA",
         "estadoConsulta": "BORRADOR",
         "prioridad": "ALTA",
+        "conMarca": false,
         "ejecucionHoy": {
           "uuid": "88888888-8888-4888-8888-888888888888",
           "estadoEjecucion": "FINALIZADO",
@@ -319,18 +321,18 @@ El nombre es obligatorio y admite hasta 200 caracteres. No puede haber dos temas
 ]
 ```
 
-Requiere los dos permisos de lectura, `TEMAS_VER` y `CONSULTAS_VER`. Una cuenta de organización solo puede ver sus clientes; SYSADMIN puede leerlos globalmente. Un cliente ajeno o inexistente devuelve `404`. Los clientes archivados siguen disponibles para lectura; los temas y consultas dados de baja no aparecen.
+`ejecucionHoy` es `null` si esa consulta no tiene una ejecución registrada para el día actual en `America/Argentina/Buenos_Aires`. Si existe, incluye el UUID de la ejecución y ambos estados, incluso si está pendiente o falló. Para mostrar «Analizada hoy», comprobá `estadoEjecucion === "FINALIZADO"` y `estadoNormalizacion === "FINALIZADA"`. En los demás casos, los estados permiten mostrar que está pendiente, en curso o falló. El UUID sirve para consultar el detalle de la ejecución.
 
-`ejecucionHoy` es `null` si la consulta no tiene una ejecución registrada para el día actual en `America/Argentina/Buenos_Aires`. Si existe, incluye su UUID y ambos estados, aunque esté pendiente o haya fallado. Mostrar «Analizada hoy» solo cuando `estadoEjecucion` es `FINALIZADO` y `estadoNormalizacion` es `FINALIZADA`. El UUID permite consultar el detalle exacto de la ejecución.
+Requiere los dos permisos de lectura, `TEMAS_VER` y `CONSULTAS_VER`. Una cuenta de organización solo puede ver sus clientes; SYSADMIN puede leerlos globalmente. Un cliente ajeno o inexistente devuelve `404`. Los clientes archivados siguen disponibles para lectura; los temas y consultas dados de baja no aparecen.
 
 ### Alta
 
-`POST /api/clientes-monitoreados/{clienteUuid}/temas/{temaUuid}/consultas` recibe **directamente un array JSON**, no un objeto contenedor. Cada elemento requiere `texto` (hasta 2000 caracteres), `tipoConsulta` (`REFERENCIA` o `DESCUBRIMIENTO`) y `prioridad` (`ALTA`, `MEDIA` o `BAJA`):
+`POST /api/clientes-monitoreados/{clienteUuid}/temas/{temaUuid}/consultas` recibe **directamente un array JSON**, no un objeto contenedor. Cada elemento requiere `texto` (hasta 2000 caracteres), `tipoConsulta` (`REFERENCIA` o `DESCUBRIMIENTO`), `prioridad` (`ALTA`, `MEDIA` o `BAJA`) y `conMarca` (`true` o `false`, sin admitir `null`):
 
 ```json
 [
-  {"texto":"mejor software para talleres","tipoConsulta":"REFERENCIA","prioridad":"ALTA"},
-  {"texto":"herramientas nuevas para talleres","tipoConsulta":"DESCUBRIMIENTO","prioridad":"MEDIA"}
+  {"texto":"mejor software para talleres","tipoConsulta":"REFERENCIA","prioridad":"ALTA","conMarca":false},
+  {"texto":"¿Qué opinás de FINMI?","tipoConsulta":"DESCUBRIMIENTO","prioridad":"MEDIA","conMarca":true}
 ]
 ```
 
@@ -345,29 +347,61 @@ Devuelve `201` con un array `DatosConsulta[]` en el orden enviado. Cada consulta
     "texto": "mejor software para talleres",
     "tipoConsulta": "REFERENCIA",
     "estadoConsulta": "BORRADOR",
-    "prioridad": "ALTA"
+    "prioridad": "ALTA",
+    "conMarca": false
   }
 ]
 ```
 
 El array no puede estar vacío. Un cliente admite **15 consultas activas en total**, sumando todos sus temas; dar de baja libera cupo. Dentro de un tema, una consulta activa no puede repetir texto y tipo de otra, ignorando mayúsculas y espacios exteriores. Si falla un elemento o no alcanza el cupo, no se guarda ninguno. El cliente y el tema deben estar activos.
 
-### Edición de consultas en borrador
+Desde el 1 de noviembre de 2026, `DatosConsulta` y `DatosConsultaConEjecucionHoy` incluyen el booleano `conMarca`: indica si la pregunta está clasificada como una referencia a la marca del cliente. Es independiente de `tipoConsulta` y de si la marca apareció en una respuesta de IA. Se expone en altas, detalle, listados, aprobaciones, ediciones, cambios de tipo y consultas devueltas por la generación. Las altas manuales guardan la clasificación indicada por el usuario desde la creación, sin registrarla como una edición. Las nuevas generaciones guardan la clasificación informada por la IA para cada propuesta. Las correcciones ya guardadas se reflejan también al volver a consultar una generación finalizada; las consultas existentes no se reclasifican automáticamente.
 
-`PUT /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}` recibe los cuatro campos obligatorios:
+El frontend debe enviar `conMarca` explícitamente en **cada elemento del alta y en cada edición completa**. Omitirlo o enviar `null` devuelve `400`; en un alta por lote se rechaza la tanda entera. No se deduce la clasificación a partir del texto ni se asigna un valor por defecto para estas solicitudes. Un valor ilegible o un JSON inválido también devuelve `400`. La clasificación no permite eludir la regla de duplicados por texto y tipo.
+
+### Corrección de clasificación con marca/sin marca
+
+`PATCH /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}/marca` recibe `SolicitudCambiarMarcaConsulta`:
+
+```json
+{"conMarca":true}
+```
+
+`conMarca` es obligatorio y no puede ser `null`. Requiere `CONSULTAS_EDITAR`, asignado a `PROPIETARIO` y `MIEMBRO`; tener únicamente `CONSULTAS_CAMBIAR_TIPO` no habilita esta operación. SYSADMIN conserva solo lectura. La identidad del editor se obtiene del JWT y el cliente y la consulta se identifican en la ruta.
+
+Admite consultas activas en `BORRADOR` o `APROBADA`, con cliente activo y tema de origen activo. Devuelve `200 DatosConsulta` actualizado, conservando UUID, texto, tema, prioridad, tipo, estado y cupo. Un cambio real registra editor y fecha de modificación; reenviar el mismo valor devuelve `200` sin cambiar la auditoría. La posibilidad de corregir una aprobada no habilita editar su contenido mediante `PUT` ni cambiar su tipo.
+
+Errores: `400` por campo ausente o `null`, valor ilegible o JSON inválido; `401` sin sesión válida; `403` sin permiso; `404` por cliente o consulta inexistente, ajeno o dado de baja; `409` por cliente archivado o tema de origen inactivo. Los rechazos conservan la clasificación anterior.
+
+La operación bloquea el cliente y la consulta antes de corregirla. Cada ejecución conserva la clasificación que capturó al crearse: una corrección afecta a las nuevas ejecuciones y no altera las anteriores, incluidas las que ya estaban en cola y sus reintentos. El frontend puede reemplazar la consulta por UUID con la respuesta recibida. La API de métricas separa ambos grupos usando esa clasificación histórica; los informes semanales nuevos conservan también la separación documentada más adelante.
+
+### Edición completa en borrador
+
+Incorporada al backend el 31 de octubre de 2026.
+
+`PUT /api/clientes-monitoreados/{clienteUuid}/consultas/{consultaUuid}` recibe los cinco campos obligatorios de `SolicitudEditarConsulta`:
 
 ```json
 {
   "texto": "¿Qué software recomendás para talleres de Córdoba?",
   "temaUuid": "55555555-5555-4555-8555-555555555555",
   "prioridad": "ALTA",
-  "tipoConsulta": "DESCUBRIMIENTO"
+  "tipoConsulta": "DESCUBRIMIENTO",
+  "conMarca": false
 }
 ```
 
-Requiere `CONSULTAS_EDITAR`, obtenido de `GET /api/autenticacion/actual`. Solo permite editar consultas en `BORRADOR`. El formulario usa los temas del mismo cliente, texto de hasta 2000 caracteres, prioridad `ALTA`, `MEDIA` o `BAJA` y tipo `REFERENCIA` o `DESCUBRIMIENTO`. El frontend habilita la edición para cuentas de organización y clientes activos; el backend conserva la autorización final.
+El texto es obligatorio, admite hasta 2000 caracteres y se guarda sin espacios exteriores. `prioridad` admite `ALTA`, `MEDIA` o `BAJA`; `tipoConsulta`, `REFERENCIA` o `DESCUBRIMIENTO`. `temaUuid` debe identificar un tema activo del mismo cliente; crear un tema sigue siendo una operación separada. `conMarca` requiere un valor explícito `true` o `false`; no puede omitirse ni ser `null`.
 
-Devuelve `200` con la consulta actualizada en formato `DatosConsulta`, conservando su identidad y cupo. El backend registra al editor y la fecha; esos datos no se envían desde el frontend. Si cambia `temaUuid`, la interfaz mueve la consulta al tema devuelto por el servidor. Los errores se muestran en el formulario conservando los valores ingresados.
+Requiere `CONSULTAS_EDITAR`, asignado por defecto a `PROPIETARIO` y `MIEMBRO`. Este permiso es independiente de `CONSULTAS_CAMBIAR_TIPO`: tener únicamente el segundo no habilita la edición completa. SYSADMIN conserva solo lectura. La organización y el usuario editor se obtienen de la identidad autenticada, y los identificadores de cliente y consulta, de la ruta.
+
+Solo se puede editar una consulta activa en `BORRADOR`, con cliente activo y tema de origen activo. La operación devuelve `200 DatosConsulta` con los cinco campos guardados, mantiene UUID, estado, creador y fecha de creación, y no consume otro lugar del cupo; se permite también si ya hay 15 consultas activas. Un cambio real, incluso únicamente de `conMarca`, registra editor y fecha de modificación. Reenviar los mismos valores, después de quitar espacios exteriores al texto, devuelve `200` sin cambiar la auditoría. La clasificación y el contenido se guardan juntos; un rechazo conserva ambos.
+
+Si cambia el tema, el frontend debe quitar la consulta de su grupo anterior y agregar la respuesta en el grupo identificado por el nuevo `temaUuid`, o recargar `GET .../consultas/por-tema`. La ruta de edición conserva la misma identidad aunque cambie de tema. El detalle en el tema anterior deja de encontrarla.
+
+Errores: `400` por campos ausentes o `null`, texto vacío o de más de 2000 caracteres, UUID o enums inválidos y JSON ilegible; `401` sin sesión válida; `403` sin permiso; `404` por cliente o consulta inexistente, ajeno o dado de baja, o tema destino inexistente, inactivo o de otro cliente; `409` por consulta aprobada, cliente archivado, tema de origen dado de baja o duplicado activo del mismo texto y tipo en el tema destino. La comparación de duplicados ignora mayúsculas y espacios exteriores y excluye la propia consulta. Un rechazo conserva todos los campos anteriores.
+
+La edición usa el mismo bloqueo transaccional por cliente que las altas, bajas, aprobaciones y cambios de tipo. Si una aprobación se confirma primero, la edición se rechaza con `409`; si se edita primero, se puede aprobar después el contenido ya guardado.
 
 ### Cambio de tipo en borrador
 
@@ -391,7 +425,7 @@ Ambos endpoints reciben **directamente un array de UUID** de consultas de cualqu
 
 `POST .../consultas/aprobaciones` solo admite consultas activas en `BORRADOR`, dentro de temas y cliente activos. Devuelve `200` con `DatosConsulta[]` de **las consultas del lote**, en el orden solicitado y con `estadoConsulta: "APROBADA"`. El frontend puede reemplazar por UUID las entradas que ya muestra. El tipo `REFERENCIA` o `DESCUBRIMIENTO` no cambia.
 
-`POST .../consultas/bajas` devuelve `204` sin body. La baja es lógica: la consulta desaparece de las rutas de lectura y libera un lugar del cupo. Texto, prioridad, tema y tipo pueden editarse con el `PUT` de consultas mientras la consulta siga en `BORRADOR`; el tipo también conserva su endpoint específico.
+`POST .../consultas/bajas` devuelve `204` sin body. La baja es lógica: la consulta desaparece de las rutas de lectura y libera un lugar del cupo. Texto, prioridad, tema, tipo y clasificación de marca pueden editarse juntos mediante `PUT .../consultas/{consultaUuid}` mientras la consulta siga en `BORRADOR`. El endpoint de cambio de tipo se mantiene compatible y conserva `conMarca`.
 
 Las dos operaciones validan el lote entero antes de cambiar registros. Un UUID inexistente, inactivo o de otro cliente/organización produce `404` y no cambia ninguna consulta; uno repetido o `null` produce `400`. Aprobar una consulta ya aprobada o perteneciente a un tema dado de baja produce `409`; un cliente `ARCHIVADO` también bloquea estas escrituras con `409`. Los clientes archivados conservan lectura.
 
@@ -415,6 +449,10 @@ La respuesta inicial es:
 `GET` en la **misma ruta** busca el último proceso del cliente en el servidor: no se guarda su UUID en localStorage. Devuelve `204` si el cliente existe pero nunca tuvo un proceso. Si lo hay, devuelve `200` con `PENDIENTE`, `PROCESANDO`, `FINALIZADO` o `FALLIDO`. `CONSULTAS_VER` permite a SYSADMIN consultar el estado globalmente; las cuentas de organización solo ven clientes propios.
 
 Al terminar, `estado` es `FINALIZADO` y `temas` contiene objetos `DatosTema`, mientras `consultas` contiene objetos `DatosConsulta`, todos en `BORRADOR`. Los UUID de tema permiten agruparlos en el front. Si no se pudo leer la portada, `advertencia` informa que se usaron los datos guardados. En `FALLIDO`, `mensaje` explica que se puede reintentar y ambos arrays están vacíos. Un proceso interrumpido por reinicio o vencimiento pasa a `FALLIDO`; no queda pendiente indefinidamente.
+
+Cada consulta de una nueva generación conserva el `conMarca` informado por la IA. Las instrucciones consideran como referencia a la marca tanto el nombre del cliente como el dominio de su sitio; mencionar únicamente un competidor no cuenta como con marca. La clasificación es independiente de `REFERENCIA` o `DESCUBRIMIENTO` y se muestra también en el detalle y los listados. Se guarda como dato inicial, sin registrar una edición. El usuario puede corregirla después mediante las operaciones de edición ya documentadas.
+
+El lote debe contener exactamente 15 consultas distintas, con al menos ocho clasificadas como sin marca (`conMarca: false`). Este mínimo se comprueba al generar, usando la clasificación recibida. Si alguna propuesta omite `conMarca`, lo informa como `null` o usa un valor distinto de un booleano JSON (por ejemplo, `"true"` o `1`), el proceso termina `FALLIDO` sin guardar temas ni consultas del lote. Lo mismo ocurre si no cumple el mínimo de ocho. Se conserva la auditoría y el consumo de la llamada y se permite iniciar un nuevo proceso. Los endpoints de generación siguen sin recibir body.
 
 **Regla para la página del cliente:** al abrirla, pedir en paralelo `GET /api/clientes-monitoreados/{clienteUuid}` y el `GET` de generación. Mostrar solo un estado de carga hasta que **ambas solicitudes terminen**; no mostrar datos parciales del cliente ni del proceso. Un `204` del proceso cuenta como solicitud terminada. Si falla cualquiera de las dos, mostrar el error correspondiente sin presentar contenido parcial. Después de la carga inicial, consultar únicamente el estado del proceso cada 3 segundos mientras sea `PENDIENTE` o `PROCESANDO` y la página esté abierta; detener el polling al llegar a `FINALIZADO` o `FALLIDO`. Al volver a la página, repetir las dos solicitudes iniciales.
 
@@ -484,74 +522,145 @@ OpenAI recibe el texto original con búsqueda web opcional (`tool_choice: "auto"
 
 `GET /api/clientes-monitoreados/{clienteUuid}/metricas?desde=2026-10-01&hasta=2026-10-31` exige ambas fechas ISO y toma los extremos inclusive según el día argentino de cada ejecución. Requiere `CONSULTAS_VER`. Una cuenta de organización solo puede leer sus clientes; SYSADMIN puede leer cualquier cliente activo. Devuelve `400` si falta una fecha, el formato es inválido o `desde` es posterior a `hasta`; otro cliente responde `404`.
 
+Desde el paso 6b de F02, devuelve `DatosMetricasSeparadasCliente` con cinco campos en la raíz: `clienteUuid`, `desde`, `hasta`, `sinMarca` y `conMarca`. Los dos bloques están siempre presentes y contienen todos los conteos, tasas y desgloses del grupo indicado. No lleva body ni necesita un filtro de marca: ambos grupos llegan en una sola llamada. El frontend debe adaptar las lecturas del formato plano anterior; la presencia principal se obtiene de **`sinMarca.tasaMencionMarca`**.
+
 ```json
 {
   "clienteUuid": "33333333-3333-4333-8333-333333333333",
   "desde": "2026-10-01",
   "hasta": "2026-10-31",
-  "ejecuciones": 4,
-  "analizadas": 2,
-  "pendientes": 1,
-  "fallidas": 1,
-  "mencionesMarca": 1,
-  "tasaMencionMarca": 50.00,
-  "conCitas": 2,
-  "tasaCitas": 100.00,
-  "conCitasSitioCliente": 1,
-  "tasaCitasSitioCliente": 50.00,
-  "serieDiaria": [{
-    "dia": "2026-10-09",
-    "ejecuciones": 1,
-    "analizadas": 0,
+  "sinMarca": {
+    "ejecuciones": 10,
+    "analizadas": 8,
     "pendientes": 0,
-    "fallidas": 1,
-    "mencionesMarca": 0,
-    "tasaMencionMarca": null,
-    "conCitas": 0,
-    "tasaCitas": null,
-    "conCitasSitioCliente": 0,
-    "tasaCitasSitioCliente": null,
-    "modelosAnalizados": {}
-  }, {
-    "dia": "2026-10-10",
-    "ejecuciones": 3,
+    "fallidas": 2,
+    "canceladas": 0,
+    "mencionesMarca": 2,
+    "tasaMencionMarca": 25.00,
+    "conCitas": 2,
+    "tasaCitas": 25.00,
+    "conCitasSitioCliente": 1,
+    "tasaCitasSitioCliente": 12.50,
+    "serieDiaria": [
+      {
+        "dia": "2026-10-10",
+        "ejecuciones": 10,
+        "analizadas": 8,
+        "pendientes": 0,
+        "fallidas": 2,
+        "canceladas": 0,
+        "mencionesMarca": 2,
+        "tasaMencionMarca": 25.00,
+        "conCitas": 2,
+        "tasaCitas": 25.00,
+        "conCitasSitioCliente": 1,
+        "tasaCitasSitioCliente": 12.50,
+        "modelosAnalizados": {
+          "gpt-6.1-sol": 4,
+          "gpt-6-luna": 4
+        }
+      }
+    ],
+    "competidores": [
+      {
+        "competidorUuid": "99999999-9999-4999-8999-999999999999",
+        "nombre": "Taller Sur",
+        "evaluaciones": 2,
+        "menciones": 1,
+        "tasaMencion": 50.00
+      }
+    ],
+    "consultasMencionadas": [
+      {
+        "consultaUuid": "66666666-6666-4666-8666-666666666666",
+        "textoConsulta": "¿Qué taller conviene?",
+        "mencionesMarca": 1
+      },
+      {
+        "consultaUuid": "77777777-7777-4777-8777-777777777777",
+        "textoConsulta": "Pregunta sin marca 2",
+        "mencionesMarca": 1
+      }
+    ]
+  },
+  "conMarca": {
+    "ejecuciones": 4,
     "analizadas": 2,
     "pendientes": 1,
     "fallidas": 0,
-    "mencionesMarca": 1,
-    "tasaMencionMarca": 50.00,
+    "canceladas": 1,
+    "mencionesMarca": 2,
+    "tasaMencionMarca": 100.00,
     "conCitas": 2,
     "tasaCitas": 100.00,
     "conCitasSitioCliente": 1,
     "tasaCitasSitioCliente": 50.00,
-    "modelosAnalizados": {"gpt-6.1-sol": 1, "gpt-6-luna": 1}
-  }],
-  "competidores": [{
-    "competidorUuid": "99999999-9999-4999-8999-999999999999",
-    "nombre": "Taller Sur",
-    "evaluaciones": 2,
-    "menciones": 1,
-    "tasaMencion": 50.00
-  }],
-  "consultasMencionadas": [{
-    "consultaUuid": "66666666-6666-4666-8666-666666666666",
-    "textoConsulta": "¿Qué taller conviene?",
-    "mencionesMarca": 1
-  }]
+    "serieDiaria": [
+      {
+        "dia": "2026-10-10",
+        "ejecuciones": 4,
+        "analizadas": 2,
+        "pendientes": 1,
+        "fallidas": 0,
+        "canceladas": 1,
+        "mencionesMarca": 2,
+        "tasaMencionMarca": 100.00,
+        "conCitas": 2,
+        "tasaCitas": 100.00,
+        "conCitasSitioCliente": 1,
+        "tasaCitasSitioCliente": 50.00,
+        "modelosAnalizados": {
+          "gpt-6.1-sol": 1,
+          "gpt-6-luna": 1
+        }
+      }
+    ],
+    "competidores": [
+      {
+        "competidorUuid": "99999999-9999-4999-8999-999999999999",
+        "nombre": "Taller Sur",
+        "evaluaciones": 1,
+        "menciones": 1,
+        "tasaMencion": 100.00
+      }
+    ],
+    "consultasMencionadas": [
+      {
+        "consultaUuid": "88888888-8888-4888-8888-888888888888",
+        "textoConsulta": "Pregunta sobre Taller Norte",
+        "mencionesMarca": 1
+      },
+      {
+        "consultaUuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "textoConsulta": "Pregunta sobre tallernorte.example",
+        "mencionesMarca": 1
+      }
+    ]
+  }
 }
 ```
 
-La serie tiene una sola entrada por día con ejecuciones, aunque se hayan usado Sol y Luna; `modelosAnalizados` informa cuántas mediciones completas aportó cada modelo. Solo entran al denominador las ejecuciones `FINALIZADO` con normalización `FINALIZADA` y resultado guardado. `pendientes` y `fallidas` se informan aparte. Una respuesta cuenta una sola vez en `conCitas` si cita alguna fuente, y una sola vez en `conCitasSitioCliente` si cita el dominio del sitio del cliente o un subdominio. Las tasas son porcentajes entre 0 y 100 con dos decimales; cuando el denominador es cero llegan como `null`, no como cero. La tasa de mención combina todas las consultas, incluso las que nombran la marca: no debe rotularse como presencia espontánea. Cada competidor usa como denominador las respuestas en las que fue evaluado, por lo que puede diferir del total del cliente. Los días sin ejecuciones no aparecen en `serieDiaria`.
+Cada grupo incluye `ejecuciones`, `analizadas`, `pendientes`, `fallidas`, `canceladas`, `mencionesMarca`, `tasaMencionMarca`, `conCitas`, `tasaCitas`, `conCitasSitioCliente`, `tasaCitasSitioCliente`, `serieDiaria`, `competidores` y `consultasMencionadas`. La pertenencia se determina por `conMarca` guardado al crear la ejecución, independientemente del valor actual de la consulta y de su tipo `REFERENCIA` o `DESCUBRIMIENTO`. Corregir una consulta no mueve sus mediciones anteriores de grupo. Una misma consulta puede figurar en ambos desgloses si tuvo ejecuciones con distinta clasificación.
 
-`consultasMencionadas` agrupa por UUID de consulta las respuestas del período que nombraron la marca. Cada ejecución terminada y normalizada suma como máximo una mención, aunque el nombre aparezca varias veces en el texto. Solo incluye consultas con `mencionesMarca > 0`, ordenadas de mayor a menor; si no hubo menciones, devuelve `[]`. Conserva consultas dadas de baja que tuvieron mediciones dentro del rango. La suma de sus conteos coincide con `mencionesMarca` del cliente.
+Cada `serieDiaria` tiene una sola entrada por día con ejecuciones de su grupo, aunque se hayan usado Sol y Luna; `modelosAnalizados` informa cuántas mediciones completas aportó cada modelo. Los días sin ejecuciones del grupo no aparecen; el frontend puede alinear las dos series por `dia`. Solo entran al denominador de las tasas las ejecuciones `FINALIZADO` con normalización `FINALIZADA` y resultado guardado. `pendientes`, `fallidas` y `canceladas` se informan aparte; una normalización cancelada también cuenta como cancelación de la medición. Una respuesta cuenta una sola vez en `conCitas` si cita alguna fuente, y una sola vez en `conCitasSitioCliente` si cita el dominio del sitio del cliente o un subdominio. Cada competidor usa como denominador las respuestas de ese grupo en las que fue evaluado, por lo que puede diferir del total del grupo.
+
+Las tasas son porcentajes entre 0 y 100 con dos decimales y se calculan sobre los conteos del período de cada grupo, sin promediar porcentajes diarios ni tasas entre grupos. Cuando el denominador es cero llegan como `null`; un grupo con muestra y ninguna mención tiene tasa `0.00`. Si no hay ejecuciones en un grupo, todos sus conteos son cero, sus tasas son `null` y sus tres listas son `[]`. Si hay trabajos pendientes o fallidos, sus conteos y días pueden estar presentes aunque todavía no haya muestra analizada. Una normalización marcada como finalizada pero sin resultado persistido provoca error de la respuesta completa.
+
+En cada bloque, `consultasMencionadas` agrupa por UUID de consulta las respuestas de ese grupo y período que nombraron la marca. Cada ejecución terminada y normalizada suma como máximo una mención, aunque el nombre aparezca varias veces en el texto. Solo incluye consultas con `mencionesMarca > 0` y devuelve como máximo las 15 más mencionadas del grupo, ordenadas de mayor a menor; los empates se resuelven por texto y UUID. Si no hubo menciones, devuelve `[]`. Conserva consultas dadas de baja que tuvieron mediciones dentro del rango. El total `mencionesMarca` del grupo incluye también las consultas que queden fuera de esas 15, por lo que puede ser mayor que la suma del desglose. Este desglose se ofrece en la API de métricas y no se duplica en el contexto enviado al análisis semanal.
 
 Se preservan mediciones de consultas luego dadas de baja. Los registros antiguos que quedaron sin `diaEjecucion` durante V13 no participan en estas métricas para evitar duplicados del mismo día. Las tasas se calculan al pedirlas, sin caché ni tabla de métricas. La comparación de citas propias usa el sitio web actual del cliente; si más adelante se permite editarlo, habrá que conservar el dominio por ejecución para mantener la clasificación histórica.
 
 ### Análisis semanal manual
 
-La ruta base es `/api/clientes-monitoreados/{clienteUuid}/analisis-semanales`. `POST` no recibe body y devuelve `202` con el proceso. Al abrir la pantalla de análisis del cliente, consultar `GET .../ultimo` para recuperar el trabajo aunque se haya iniciado desde otra computadora. Si devuelve `PENDIENTE` o `PROCESANDO`, sondear esa ruta o `GET .../{analisisUuid}` hasta `FINALIZADO`, `FALLIDO` o `CANCELADO`. El historial usa `pagina=0` por defecto y 20 elementos por página. SYSADMIN puede leer cualquier cliente; PROPIETARIO y MIEMBRO pueden iniciar y leer solo los de su organización.
+La ruta base es `/api/clientes-monitoreados/{clienteUuid}/analisis-semanales`. `POST` no recibe body y devuelve `202` con el proceso. Al abrir la página del cliente, consultar `GET .../ultimo` para recuperar el trabajo aunque se haya iniciado desde otra computadora. Si devuelve `PENDIENTE` o `PROCESANDO`, sondear esa misma ruta o `GET .../{analisisUuid}` hasta recibir `FINALIZADO`, `FALLIDO` o `CANCELADO`. `GET` de historial usa `pagina=0` por defecto y 20 elementos por página. SYSADMIN puede leer cualquier cliente; PROPIETARIO y MIEMBRO pueden iniciar y leer solo los de su organización.
 
-Ejemplo abreviado de respuesta finalizada:
+Desde el paso 7a de F02, los nuevos análisis envían a la IA un contexto propio con `metricas.sinMarca` y `metricas.conMarca`. Cada grupo conserva los conteos, tasas, serie diaria y competidores calculados por el backend, sin repetir `consultasMencionadas`: las preguntas y sus evidencias ya viajan en `ejecuciones`. Cada ejecución incluye `conMarca`, tomado de su clasificación histórica; `marcaMencionada` sigue indicando la aparición de la marca en la respuesta. La IA recibe instrucciones para distinguir ambos conceptos, usar `sinMarca` como presencia espontánea, conservar las tasas calculadas y tratar `null` como ausencia de muestra analizada.
+
+Desde el paso 7b de F02, el informe generado a partir de un contexto separado contiene únicamente `sinMarca` y `conMarca`. Ambos bloques están siempre presentes, cada uno con `resumen`, `hallazgos` y `recomendaciones`. `sinMarca` corresponde a presencia espontánea; `conMarca`, a respuestas de preguntas que nombran a la marca. No hay un resumen combinado en la raíz. El frontend debe distinguir el nuevo formato por la presencia de ambos bloques y conservar la presentación anterior para informes con los tres campos planos.
+
+Los contextos e informes anteriores se conservan sin reescribir: un reintento reutiliza exactamente la muestra guardada. Si tiene métricas combinadas, mantiene el formato anterior; si tiene métricas separadas, genera el nuevo. Se mantienen los fragmentos de hasta 600 caracteres, las citas, los conteos de fallos y los días sin resultados; su exclusión corresponde a F07.
+
+Ejemplo abreviado de respuesta `200` finalizada con muestra sin marca y sin muestra con marca:
 
 ```json
 {
@@ -565,16 +674,33 @@ Ejemplo abreviado de respuesta finalizada:
   "intentos": 1,
   "mensaje": null,
   "informe": {
-    "resumen": "La marca apareció en parte de las respuestas analizadas.",
-    "hallazgos": [{"descripcion": "Una respuesta mencionó la marca.", "ejecuciones": ["cccccccc-cccc-4ccc-8ccc-cccccccccccc"]}],
-    "recomendaciones": [{"titulo": "Ampliar contenidos", "accion": "Publicar respuestas a las dudas más frecuentes.", "prioridad": "MEDIA", "ejecuciones": ["cccccccc-cccc-4ccc-8ccc-cccccccccccc"]}]
+    "sinMarca": {
+      "resumen": "La marca apareció en parte de las respuestas a preguntas sin marca.",
+      "hallazgos": [{"descripcion": "Una respuesta mencionó la marca.", "ejecuciones": ["cccccccc-cccc-4ccc-8ccc-cccccccccccc"]}],
+      "recomendaciones": [{"titulo": "Ampliar contenidos", "accion": "Publicar respuestas a las dudas más frecuentes.", "prioridad": "MEDIA", "ejecuciones": ["cccccccc-cccc-4ccc-8ccc-cccccccccccc"]}]
+    },
+    "conMarca": {
+      "resumen": "No hay respuestas analizadas en este grupo durante el período.",
+      "hallazgos": [],
+      "recomendaciones": []
+    }
   }
 }
 ```
 
-`informe` es `null` mientras el trabajo no termine o si falla. Los UUID de `ejecuciones` pertenecen a la muestra usada para el análisis. Los últimos siete días son los días calendario de Argentina hasta el día del inicio, inclusive. Se aceptan datos parciales, pero sin ejecuciones finalizadas y normalizadas el POST devuelve `409` con `detail`. Otro POST durante un trabajo abierto devuelve el mismo proceso; tras un fallo reintenta con el mismo UUID y la misma muestra. Después de finalizar correctamente, el plan Básico exige siete días completos antes de otro POST; hasta entonces devuelve `409`. Sin clave de OpenAI devuelve `503`. La generación automática del informe todavía no está habilitada.
+Cada referencia de un bloque debe ser un `ejecucionUuid` de ese mismo grupo en la muestra congelada; no sirve el `consultaUuid`, una ejecución de otro grupo ni una de otro cliente. El máximo es de ocho hallazgos y cinco recomendaciones **en total entre ambos bloques**. Un bloque con muestra debe tener al menos un hallazgo. Uno sin muestra usa exactamente el resumen de ausencia mostrado en el ejemplo y ambas listas vacías; no se interpreta como una tasa de 0 %. Las tasas se toman de las métricas del contexto, sin mezclarlas entre grupos.
 
-Un cliente archivado puede consultarse, pero no iniciar un análisis nuevo: el POST devuelve `409`. `prioridad` en las recomendaciones puede ser `ALTA`, `MEDIA` o `BAJA`.
+Los informes anteriores siguen devolviendo este contenido de `informe`, sin agregar bloques nulos ni reclasificar sus evidencias:
+
+```json
+{
+  "resumen": "La marca apareció en parte de las respuestas analizadas.",
+  "hallazgos": [{"descripcion": "Una respuesta mencionó la marca.", "ejecuciones": ["cccccccc-cccc-4ccc-8ccc-cccccccccccc"]}],
+  "recomendaciones": [{"titulo": "Ampliar contenidos", "accion": "Publicar respuestas a las dudas más frecuentes.", "prioridad": "MEDIA", "ejecuciones": ["cccccccc-cccc-4ccc-8ccc-cccccccccccc"]}]
+}
+```
+
+`informe` es `null` mientras el trabajo no termine o si falla. Sus UUID de `ejecuciones` pertenecen a la muestra usada para el análisis. Los últimos siete días son los días calendario de Argentina hasta el día del inicio, inclusive. Se aceptan datos parciales, pero sin ejecuciones finalizadas y normalizadas el POST devuelve `409` con `detail`. Otro POST durante un trabajo abierto devuelve el mismo proceso; tras un fallo reintenta con el mismo UUID y la misma muestra. Después de finalizar correctamente, el plan Básico exige siete días completos antes de otro POST; hasta entonces devuelve `409`. Sin clave de OpenAI devuelve `503`. La generación automática del informe todavía no está habilitada.
 
 ## Errores y estados para la interfaz
 

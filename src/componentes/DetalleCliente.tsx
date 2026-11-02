@@ -8,13 +8,22 @@ import type {
   DatosGeneracionConsultas,
   DatosTema,
   DatosTemaConConsultas,
-  SolicitudCrearConsulta,
   SolicitudEditarConsulta,
 } from '../api/tipos'
+import {
+  actualizarAgrupados,
+  clasificacionValida,
+  leerClasificacion,
+  puedeCorregirMarca,
+  prepararConsultas,
+  reemplazarConsultas,
+  type BorradorConsulta,
+} from '../consultas'
 import { obtenerMensajeError, tienePermiso, urlWebSegura } from '../utilidades'
 import { AccionesConsultas } from './AccionesConsultas'
 import { Aviso, EtiquetaEstado, Icono, Vacio } from './Comun'
 import { ConfirmarEstadoCliente } from './ConfirmarEstadoCliente'
+import { CorregirMarcaConsulta } from './CorregirMarcaConsulta'
 import { GestionCompetidores } from './GestionCompetidores'
 import { ConfirmarTipoConsulta } from './ConfirmarTipoConsulta'
 import { EditarConsulta } from './EditarConsulta'
@@ -23,10 +32,11 @@ import { GeneracionConsultas } from './GeneracionConsultas'
 import { ProgresoEjecuciones, type EnvioConsulta } from './ProgresoEjecuciones'
 import { VistaConsultasAgrupadas } from './VistaConsultasAgrupadas'
 
-const consultaInicial: SolicitudCrearConsulta = {
+const consultaInicial: BorradorConsulta = {
   texto: '',
   tipoConsulta: 'REFERENCIA',
   prioridad: 'MEDIA',
+  conMarca: null,
 }
 
 const pausaParaMostrarResultadoMs = 800
@@ -90,7 +100,7 @@ export function DetalleCliente({
   const [renombrando, cambiarRenombrando] = useState(false)
   const [nombreEditado, cambiarNombreEditado] = useState('')
   const [mostrarConsultas, cambiarMostrarConsultas] = useState(false)
-  const [filasConsulta, cambiarFilasConsulta] = useState<SolicitudCrearConsulta[]>([
+  const [filasConsulta, cambiarFilasConsulta] = useState<BorradorConsulta[]>([
     { ...consultaInicial },
   ])
   const [seleccionadas, cambiarSeleccionadas] = useState<string[]>([])
@@ -106,6 +116,8 @@ export function DetalleCliente({
   const [cambiandoTipo, cambiarCambiandoTipo] = useState(false)
   const [consultaParaEditar, definirConsultaParaEditar] = useState<DatosConsulta | null>(null)
   const [errorEdicion, cambiarErrorEdicion] = useState('')
+  const [consultaParaMarca, definirConsultaParaMarca] = useState<DatosConsulta | null>(null)
+  const [errorMarca, cambiarErrorMarca] = useState('')
   const [generando, cambiarGenerando] = useState(false)
   const [revisionInicial, cambiarRevisionInicial] = useState(0)
   const [revisionTemas, cambiarRevisionTemas] = useState(0)
@@ -124,7 +136,7 @@ export function DetalleCliente({
   const puedeCrearTema = activo && tienePermiso(cuenta.permisos, 'TEMAS_CREAR')
   const puedeEditarTema = activo && tienePermiso(cuenta.permisos, 'TEMAS_EDITAR')
   const puedeCrearConsulta = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_CREAR')
-  const puedeEditarConsulta = activo && tienePermiso(cuenta.permisos, 'CONSULTAS_EDITAR')
+  const puedeEditarConsulta = puedeCorregirMarca(cuenta, cliente)
   const puedeGenerar =
     puedeCrearConsulta && puedeVerConsultas && (!generacion || generacion.estado === 'FALLIDO')
   const mostrarPanelGeneracion =
@@ -602,7 +614,11 @@ export function DetalleCliente({
   /** El endpoint recibe un array JSON directo y valida el lote de forma atómica. */
   async function crearConsultas(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
-    if (!temaActual) return
+    if (!temaActual || !puedeCrearConsulta || guardando) return
+    if (filasConsulta.some((fila) => !clasificacionValida(fila.conMarca))) {
+      cambiarErrorAccion('Elegí Con marca o Sin marca para cada consulta.')
+      return
+    }
     cambiarErrorAccion('')
     cambiarMensajeAccion('')
     cambiarGuardando(true)
@@ -610,7 +626,7 @@ export function DetalleCliente({
       const creadas = await api.consultas.crear(
         clienteUuid,
         temaActual.uuid,
-        filasConsulta.map((fila) => ({ ...fila, texto: fila.texto.trim() })),
+        prepararConsultas(filasConsulta),
       )
       cambiarConsultas((actuales) => [...actuales, ...creadas])
       cambiarFilasConsulta([{ ...consultaInicial }])
@@ -632,6 +648,7 @@ export function DetalleCliente({
     cambiarMensajeAccion('')
     try {
       const aprobadas = await api.consultas.aprobar(clienteUuid, seleccionadas)
+      sincronizarGeneracion(aprobadas)
       const porUuid = new Map(aprobadas.map((consulta) => [consulta.uuid, consulta]))
       cambiarConsultas((actuales) =>
         actuales.map((consulta) => ({ ...consulta, ...porUuid.get(consulta.uuid) })),
@@ -673,6 +690,9 @@ export function DetalleCliente({
     const esRechazo = vistaAgrupada && todasBorrador
     try {
       await api.consultas.darDeBaja(clienteUuid, seleccionadas)
+      cambiarGeneracion((actual) => actual ? {
+        ...actual, consultas: actual.consultas.filter((consulta) => !seleccionadas.includes(consulta.uuid)),
+      } : null)
       const cantidad = seleccionadas.length
       cambiarConsultas((actuales) =>
         actuales.filter((consulta) => !seleccionadas.includes(consulta.uuid)),
@@ -696,6 +716,51 @@ export function DetalleCliente({
       recargarConsultasVisibles()
     } finally {
       cambiarGuardando(false)
+    }
+  }
+
+  /** La generación finalizada también es una lectura de las consultas vigentes. */
+  function sincronizarGeneracion(actualizadas: DatosConsulta[]) {
+    cambiarGeneracion((actual) => actual ? {
+      ...actual, consultas: reemplazarConsultas(actual.consultas, actualizadas),
+    } : null)
+  }
+
+  function aplicarConsultasActualizadas(actualizadas: DatosConsulta[]) {
+    cambiarConsultas((actuales) => reemplazarConsultas(actuales, actualizadas)
+      .filter((consulta) => consulta.temaUuid === temaUuid))
+    cambiarTemasAgrupados((actuales) => actuales
+      ? actualizadas.reduce(actualizarAgrupados, actuales) : null)
+    sincronizarGeneracion(actualizadas)
+  }
+
+  function solicitarCorreccionMarca(consulta: DatosConsulta) {
+    if (!puedeEditarConsulta || consulta.clienteUuid !== clienteUuid || guardando ||
+      cambiandoTipo || confirmarBaja || cambiandoEstadoCliente) return
+    cambiarErrorMarca('')
+    cambiarErrorAccion('')
+    cambiarMensajeAccion('')
+    definirConsultaParaMarca(consulta)
+  }
+
+  /** Conserva la clasificación visible hasta recibir la confirmación del servidor. */
+  async function guardarMarca(conMarca: boolean) {
+    const consulta = consultaParaMarca
+    if (!consulta || !puedeEditarConsulta || guardando || !clasificacionValida(conMarca)) return
+    cambiarGuardando(true)
+    cambiarErrorMarca('')
+    try {
+      const actualizada = await api.consultas.cambiarMarca(clienteUuid, consulta.uuid, conMarca)
+      if (!montado.current) return
+      aplicarConsultasActualizadas([actualizada])
+      cambiarRevisionConsultas((actual) => actual + 1)
+      cambiarRevisionAgrupados((actual) => actual + 1)
+      definirConsultaParaMarca(null)
+      cambiarMensajeAccion('Clasificación actualizada. El cambio aplica a nuevas mediciones.')
+    } catch (causa) {
+      if (montado.current) cambiarErrorMarca(obtenerMensajeError(causa))
+    } finally {
+      if (montado.current) cambiarGuardando(false)
     }
   }
 
@@ -727,6 +792,7 @@ export function DetalleCliente({
       !puedeEditarConsulta ||
       consulta.estadoConsulta !== 'BORRADOR' ||
       guardando ||
+      !clasificacionValida(datos.conMarca) ||
       !datos.texto.trim() ||
       datos.texto.length > 2000 ||
       !temas.some((tema) => tema.uuid === datos.temaUuid)
@@ -737,30 +803,7 @@ export function DetalleCliente({
     cambiarErrorEdicion('')
     try {
       const actualizada = await api.consultas.editar(clienteUuid, consulta.uuid, datos)
-      cambiarConsultas((actuales) =>
-        actuales
-          .map((item) => item.uuid === actualizada.uuid ? { ...item, ...actualizada } : item)
-          .filter((item) => item.temaUuid === temaUuid),
-      )
-      cambiarTemasAgrupados((actuales) => {
-        if (!actuales) return null
-        const anterior = actuales.flatMap((tema) => tema.consultas)
-          .find((item) => item.uuid === actualizada.uuid)
-        return actuales.map((tema) => {
-          if (tema.uuid !== actualizada.temaUuid) {
-            return { ...tema, consultas: tema.consultas.filter((item) => item.uuid !== actualizada.uuid) }
-          }
-          const yaIncluida = tema.consultas.some((item) => item.uuid === actualizada.uuid)
-          return {
-            ...tema,
-            consultas: yaIncluida
-              ? tema.consultas.map((item) =>
-                item.uuid === actualizada.uuid ? { ...item, ...actualizada } : item,
-              )
-              : [...tema.consultas, { ejecucionHoy: null, ...anterior, ...actualizada }],
-          }
-        })
-      })
+      aplicarConsultasActualizadas([actualizada])
       // Invalida lecturas en curso para que un sondeo anterior no restaure datos viejos.
       cambiarRevisionConsultas((actual) => actual + 1)
       cambiarRevisionAgrupados((actual) => actual + 1)
@@ -801,6 +844,7 @@ export function DetalleCliente({
     cambiarCambiandoTipo(true)
     try {
       const actualizada = await api.consultas.cambiarTipo(clienteUuid, consulta.uuid, nuevoTipo)
+      sincronizarGeneracion([actualizada])
       cambiarConsultas((actuales) =>
         actuales.map((item) => (item.uuid === actualizada.uuid ? { ...item, ...actualizada } : item)),
       )
@@ -828,7 +872,7 @@ export function DetalleCliente({
     }
   }
 
-  function cambiarFila(indice: number, campo: keyof SolicitudCrearConsulta, valor: string) {
+  function cambiarFila(indice: number, campo: keyof BorradorConsulta, valor: string | boolean | null) {
     cambiarFilasConsulta((actuales) =>
       actuales.map((fila, posicion) => (posicion === indice ? { ...fila, [campo]: valor } : fila)),
     )
@@ -1238,6 +1282,8 @@ export function DetalleCliente({
                     alSolicitarCambioTipo={solicitarCambioTipo}
                     puedeEditar={puedeEditarConsulta && !cargandoTemas && !errorTemas}
                     alEditar={solicitarEdicion}
+                    puedeCorregirMarca={puedeEditarConsulta}
+                    alCorregirMarca={solicitarCorreccionMarca}
                     alAbrirDetalle={abrirDetalleConsulta}
                     alAbrirEjecucionHoy={(consulta, temaUuid, ejecucionUuid) =>
                       alAbrirEjecucion(consulta, temaUuid, false, ejecucionUuid)
@@ -1417,6 +1463,7 @@ export function DetalleCliente({
                                     : undefined
                                 }
                                 cambioTipoBloqueado={guardando || cambiandoTipo || confirmarBaja}
+                                alCorregirMarca={puedeEditarConsulta ? () => solicitarCorreccionMarca(consulta) : undefined}
                                 alAbrirDetalle={() => abrirDetalleConsulta(consulta, temaUuid)}
                                 alEditar={puedeEditarConsulta && !cargandoTemas && !errorTemas
                                   ? () => solicitarEdicion(consulta) : undefined}
@@ -1503,6 +1550,17 @@ export function DetalleCliente({
                               placeholder="¿Qué preguntaría una persona sobre este tema?"
                             />
                           </label>
+                          <label>
+                            Clasificación de la pregunta
+                            <select required disabled={guardando}
+                              value={clasificacionValida(fila.conMarca) ? fila.conMarca ? 'conMarca' : 'sinMarca' : ''}
+                              onChange={(evento) => cambiarFila(indice, 'conMarca', leerClasificacion(evento.target.value))}>
+                              <option value="" disabled>Elegí una clasificación</option>
+                              <option value="sinMarca">Sin marca</option>
+                              <option value="conMarca">Con marca</option>
+                            </select>
+                          </label>
+                          <p className="texto-secundario">Con marca si la pregunta hace referencia a la marca del cliente o a su sitio web. Mencionar solo a un competidor no implica Con marca.</p>
                           <div className="grilla-formulario">
                             <label>
                               Tipo
@@ -1557,6 +1615,11 @@ export function DetalleCliente({
               )}
             </section>
           </div>
+          {consultaParaMarca && (
+            <CorregirMarcaConsulta consulta={consultaParaMarca} enviando={guardando} error={errorMarca}
+              alGuardar={(conMarca) => void guardarMarca(conMarca)}
+              alCancelar={() => definirConsultaParaMarca(null)} />
+          )}
           {consultaParaEditar && (
             <EditarConsulta
               consulta={consultaParaEditar}

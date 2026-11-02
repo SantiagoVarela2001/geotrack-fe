@@ -21,6 +21,8 @@ type NombreIcono =
   | 'reactivar'
   | 'eliminar'
   | 'grafico'
+  | 'puntos'
+  | 'desplegar'
 
 export function Icono({
   nombre,
@@ -51,6 +53,8 @@ export function Icono({
       </>
     ),
     mas: <path d="M12 5v14M5 12h14" />,
+    puntos: <><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>,
+    desplegar: <path d="m6 9 6 6 6-6" />,
     flecha: <path d="M5 12h14m-6-6 6 6-6 6" />,
     buscar: (
       <>

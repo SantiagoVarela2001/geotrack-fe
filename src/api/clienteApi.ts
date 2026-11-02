@@ -23,6 +23,13 @@ import type {
   SolicitudEditarConsulta,
 } from './tipos'
 
+import { clasificacionValida } from '../consultas'
+
+/** Evita que JSON.stringify omita una clasificación ausente o envíe strings/null. */
+function exigirClasificacion(valor: unknown): void {
+  if (!clasificacionValida(valor)) throw new Error('Elegí Con marca o Sin marca para cada consulta.')
+}
+
 let tokenAcceso: string | null = null
 let renovacionPendiente: Promise<RespuestaAcceso> | null = null
 let alExpirarSesion: (() => void) | null = null
@@ -314,14 +321,23 @@ export const api = {
       solicitar<DatosConsulta>(
         `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/temas/${encodeURIComponent(temaUuid)}/consultas/${encodeURIComponent(consultaUuid)}`,
       ),
-    editar: (clienteUuid: string, consultaUuid: string, datos: SolicitudEditarConsulta) =>
-      solicitar<DatosConsulta>(
+    cambiarMarca: (clienteUuid: string, consultaUuid: string, conMarca: boolean) => {
+      exigirClasificacion(conMarca)
+      return solicitar<DatosConsulta>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/consultas/${encodeURIComponent(consultaUuid)}/marca`,
+        { method: 'PATCH', body: JSON.stringify({ conMarca }) },
+      )
+    },
+    editar: (clienteUuid: string, consultaUuid: string, datos: SolicitudEditarConsulta) => {
+      exigirClasificacion(datos.conMarca)
+      return solicitar<DatosConsulta>(
         `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/consultas/${encodeURIComponent(consultaUuid)}`,
         {
           method: 'PUT',
           body: JSON.stringify(datos),
         },
-      ),
+      )
+    },
     cambiarTipo: (
       clienteUuid: string,
       consultaUuid: string,
@@ -334,14 +350,16 @@ export const api = {
           body: JSON.stringify({ tipoConsulta }),
         },
       ),
-    crear: (clienteUuid: string, temaUuid: string, datos: SolicitudCrearConsulta[]) =>
-      solicitar<DatosConsulta[]>(
+    crear: (clienteUuid: string, temaUuid: string, datos: SolicitudCrearConsulta[]) => {
+      datos.forEach((consulta) => exigirClasificacion(consulta.conMarca))
+      return solicitar<DatosConsulta[]>(
         `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/temas/${encodeURIComponent(temaUuid)}/consultas`,
         {
           method: 'POST',
           body: JSON.stringify(datos),
         },
-      ),
+      )
+    },
     aprobar: (clienteUuid: string, uuids: string[]) =>
       solicitar<DatosConsulta[]>(
         `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/consultas/aprobaciones`,

@@ -38,6 +38,11 @@ function leerRuta(): Ruta {
   if (ruta === '/administracion') return { tipo: 'administracion' }
   if (ruta === '/gastos-ia') return { tipo: 'gastos-ia' }
   if (ruta === '/mi-perfil') return { tipo: 'mi-perfil' }
+  const evidencia = /^\/clientes\/([0-9a-f-]+)\/ejecuciones\/([0-9a-f-]+)$/i.exec(ruta)
+  if (evidencia) return {
+    tipo: 'ejecucion', clienteUuid: evidencia[1], ejecucionUuid: evidencia[2],
+    temaUuid: '', consultaUuid: '', iniciarAlAbrir: false,
+  }
   const ejecucion =
     /^\/clientes\/([0-9a-f-]+)\/temas\/([0-9a-f-]+)\/consultas\/([0-9a-f-]+)\/ejecucion(?:\/([0-9a-f-]+))?$/i.exec(ruta)
   if (ejecucion) {
@@ -554,7 +559,7 @@ function App() {
                 cuenta={cuenta}
                 iniciarAlAbrir={ruta.iniciarAlAbrir}
                 ejecucionInicialUuid={ruta.ejecucionUuid}
-                alVolver={() => navegar(`/clientes/${ruta.clienteUuid}/temas/${ruta.temaUuid}`)}
+                alVolver={() => navegar(ruta.temaUuid ? `/clientes/${ruta.clienteUuid}/temas/${ruta.temaUuid}` : `/clientes/${ruta.clienteUuid}/analisis-semanales`)}
               />
             ) : (
               <Aviso tipo="informacion">Tu cuenta no tiene permiso para ver consultas.</Aviso>

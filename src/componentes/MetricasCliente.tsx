@@ -4,21 +4,19 @@ import type {
   DatosCliente,
   DatosCuenta,
   DatosMetricasCliente,
+  DatosMetricasGrupo,
   DatosMetricasConsultaMencionada,
 } from '../api/tipos'
 import { obtenerMensajeError, tienePermiso } from '../utilidades'
 import { Aviso, Icono } from './Comun'
 import { GraficoEvolucionDiaria } from './GraficoEvolucionDiaria'
 import { InformeMetricas } from './InformeMetricas'
+import { gruposMetricas, tasaLegible } from '../metricas'
 
 type Periodo = { desde: string; hasta: string }
 type FiltroRapido = 'mes' | 'seisMeses' | 'anio'
 
 const enteros = new Intl.NumberFormat('es-AR')
-const porcentajes = new Intl.NumberFormat('es-AR', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
 const fechas = new Intl.DateTimeFormat('es-AR', {
   day: 'numeric',
   month: 'short',
@@ -46,10 +44,6 @@ function periodoRapido(filtro: FiltroRapido): Periodo {
 function fechaLegible(iso: string): string {
   const fecha = new Date(`${iso}T12:00:00Z`)
   return Number.isNaN(fecha.getTime()) ? iso : fechas.format(fecha)
-}
-
-function tasaLegible(valor: number | null): string {
-  return valor === null ? 'Sin datos' : `${porcentajes.format(valor)} %`
 }
 
 function mensajeErrorMetricas(causa: unknown): string {
@@ -87,6 +81,91 @@ function ListaConsultasMencionadas({ consultas }: { consultas: DatosMetricasCons
         </li>
       ))}
     </ul>
+  )
+}
+
+export function ResumenMetricasGrupo({ metricas, clave, etiqueta }: {
+  metricas: DatosMetricasGrupo
+  clave: 'sinMarca' | 'conMarca'
+  etiqueta: string
+}) {
+  const consultasMencionadas = [...metricas.consultasMencionadas]
+    .sort((a, b) => b.mencionesMarca - a.mencionesMarca ||
+      a.textoConsulta.localeCompare(b.textoConsulta, 'es'))
+  const restantes = consultasMencionadas.length - 5
+
+  return (
+    <section className="metricas-grupo" aria-label={etiqueta}>
+      <h2>{etiqueta}</h2>
+      {metricas.ejecuciones === 0 && <p className="metricas-vacio">No hubo ejecuciones en este grupo durante el período.</p>}
+      <section className="metricas-seccion" aria-labelledby={`metricas-resumen-titulo-${clave}`}>
+        <h2 id={`metricas-resumen-titulo-${clave}`}>Resumen del período</h2>
+        <dl className="metricas-resumen">
+          <Indicador etiqueta="Ejecuciones" valor={enteros.format(metricas.ejecuciones)} />
+          <Indicador etiqueta="Analizadas" valor={enteros.format(metricas.analizadas)} descripcion="Mediciones completas" />
+          <Indicador etiqueta="Pendientes" valor={enteros.format(metricas.pendientes)} />
+          <Indicador etiqueta="Fallidas" valor={enteros.format(metricas.fallidas)} />
+          <Indicador etiqueta="Canceladas" valor={enteros.format(metricas.canceladas)} />
+        </dl>
+      </section>
+
+      <section className="metricas-seccion" aria-labelledby={`metricas-tasas-titulo-${clave}`}>
+        <h2 id={`metricas-tasas-titulo-${clave}`}>Marca y citas</h2>
+        <dl className="metricas-tasas">
+          <Indicador etiqueta={clave === 'sinMarca' ? 'Presencia espontánea' : 'Mención de marca'} valor={tasaLegible(metricas.tasaMencionMarca)}
+            descripcion={`${enteros.format(metricas.mencionesMarca)} de ${enteros.format(metricas.analizadas)} analizadas`} />
+          <Indicador etiqueta="Respuestas con citas" valor={tasaLegible(metricas.tasaCitas)}
+            descripcion={`${enteros.format(metricas.conCitas)} de ${enteros.format(metricas.analizadas)} analizadas`} />
+          <Indicador etiqueta="Citas al sitio del cliente" valor={tasaLegible(metricas.tasaCitasSitioCliente)}
+            descripcion={`${enteros.format(metricas.conCitasSitioCliente)} de ${enteros.format(metricas.analizadas)} analizadas`} />
+        </dl>
+        <p className="metricas-nota">
+          Las tasas corresponden a este grupo y a su clasificación al crear cada ejecución.
+          Las citas propias se comparan con el sitio web actual del cliente.
+        </p>
+      </section>
+
+      <section className="metricas-seccion" aria-labelledby={`metricas-consultas-titulo-${clave}`}>
+        <h2 id={`metricas-consultas-titulo-${clave}`}>Consultas que mencionaron la marca</h2>
+        {consultasMencionadas.length === 0 ? (
+          <p className="metricas-vacio">No hubo consultas con menciones de marca en este período.</p>
+        ) : (
+          <>
+            <ListaConsultasMencionadas consultas={consultasMencionadas.slice(0, 5)} />
+            {restantes > 0 && (
+              <details className="metricas-consultas-restantes">
+                <summary>
+                  <span className="metricas-consultas-cerrado">Ver {enteros.format(restantes)} {restantes === 1 ? 'consulta restante' : 'consultas restantes'}</span>
+                  <span className="metricas-consultas-abierto">Ocultar {enteros.format(restantes)} {restantes === 1 ? 'consulta restante' : 'consultas restantes'}</span>
+                </summary>
+                <ListaConsultasMencionadas consultas={consultasMencionadas.slice(5)} />
+              </details>
+            )}
+          </>
+        )}
+        <p className="metricas-nota">Se muestran hasta 15 consultas con menciones de este grupo, incluidas consultas dadas de baja. Una consulta puede aparecer en ambos grupos por su historia. El total del grupo puede superar la suma de este listado.</p>
+      </section>
+
+      <section className="metricas-seccion" aria-labelledby={`metricas-competidores-titulo-${clave}`}>
+        <h2 id={`metricas-competidores-titulo-${clave}`}>Competidores en el período</h2>
+        {metricas.competidores.length === 0 ? (
+          <p className="metricas-vacio">No hay evaluaciones de competidores en este período.</p>
+        ) : (
+          <ul className="metricas-competidores">
+            {[...metricas.competidores]
+              .sort((a, b) => b.menciones - a.menciones || a.nombre.localeCompare(b.nombre))
+              .map((competidor) => (
+                <li key={competidor.competidorUuid}>
+                  <strong>{competidor.nombre}</strong>
+                  <span><b>{enteros.format(competidor.menciones)}</b> {competidor.menciones === 1 ? 'mención' : 'menciones'}</span>
+                  <small>en {enteros.format(competidor.evaluaciones)} respuestas evaluadas · {tasaLegible(competidor.tasaMencion)}</small>
+                </li>
+              ))}
+          </ul>
+        )}
+        <p className="metricas-nota">Cada tasa usa las respuestas donde se evaluó a ese competidor; el denominador puede diferir del total del cliente.</p>
+      </section>
+    </section>
   )
 }
 
@@ -188,11 +267,6 @@ export function MetricasCliente({
     cambiarPeriodo({ ...periodo })
   }
 
-  const consultasMencionadas = [...(metricas?.consultasMencionadas ?? [])]
-    .sort((a, b) => b.mencionesMarca - a.mencionesMarca ||
-      a.textoConsulta.localeCompare(b.textoConsulta, 'es'))
-  const restantes = consultasMencionadas.length - 5
-
   return (
     <div className="pagina-metricas">
       {puedeVerCliente && (
@@ -286,85 +360,17 @@ export function MetricasCliente({
               cliente={cliente} cuenta={cuenta} alCerrar={() => cambiarInformeAbierto(false)} />
           )}
 
-          <section className="metricas-seccion" aria-labelledby="metricas-resumen-titulo">
-            <h2 id="metricas-resumen-titulo">Resumen del período</h2>
-            <dl className="metricas-resumen">
-              <Indicador etiqueta="Ejecuciones" valor={enteros.format(metricas.ejecuciones)} />
-              <Indicador etiqueta="Analizadas" valor={enteros.format(metricas.analizadas)} descripcion="Mediciones completas" />
-              <Indicador etiqueta="Pendientes" valor={enteros.format(metricas.pendientes)} />
-              <Indicador etiqueta="Fallidas" valor={enteros.format(metricas.fallidas)} />
-            </dl>
-          </section>
-
-          <section className="metricas-seccion" aria-labelledby="metricas-tasas-titulo">
-            <h2 id="metricas-tasas-titulo">Marca y citas</h2>
-            <dl className="metricas-tasas">
-              <Indicador etiqueta="Mención de marca" valor={tasaLegible(metricas.tasaMencionMarca)}
-                descripcion={`${enteros.format(metricas.mencionesMarca)} de ${enteros.format(metricas.analizadas)} analizadas`} />
-              <Indicador etiqueta="Respuestas con citas" valor={tasaLegible(metricas.tasaCitas)}
-                descripcion={`${enteros.format(metricas.conCitas)} de ${enteros.format(metricas.analizadas)} analizadas`} />
-              <Indicador etiqueta="Citas al sitio del cliente" valor={tasaLegible(metricas.tasaCitasSitioCliente)}
-                descripcion={`${enteros.format(metricas.conCitasSitioCliente)} de ${enteros.format(metricas.analizadas)} analizadas`} />
-            </dl>
-            <p className="metricas-nota">
-              La mención de marca incluye todas las consultas, también las que nombran la marca.
-              No representa presencia espontánea. Las citas propias se comparan con el sitio web
-              actual del cliente.
-            </p>
-          </section>
-
-          <section className="metricas-seccion" aria-labelledby="metricas-consultas-titulo">
-            <h2 id="metricas-consultas-titulo">Consultas que mencionaron la marca</h2>
-            {consultasMencionadas.length === 0 ? (
-              <p className="metricas-vacio">No hubo consultas con menciones de marca en este período.</p>
-            ) : (
-              <>
-                <ListaConsultasMencionadas consultas={consultasMencionadas.slice(0, 5)} />
-                {restantes > 0 && (
-                  <details className="metricas-consultas-restantes"
-                    key={`${metricas.clienteUuid}:${metricas.desde}:${metricas.hasta}`}>
-                    <summary>
-                      <span className="metricas-consultas-cerrado">Ver {enteros.format(restantes)} {restantes === 1 ? 'consulta restante' : 'consultas restantes'}</span>
-                      <span className="metricas-consultas-abierto">Ocultar {enteros.format(restantes)} {restantes === 1 ? 'consulta restante' : 'consultas restantes'}</span>
-                    </summary>
-                    <ListaConsultasMencionadas consultas={consultasMencionadas.slice(5)} />
-                  </details>
-                )}
-              </>
-            )}
-            <p className="metricas-nota">Cada respuesta analizada cuenta como máximo una mención por consulta, aunque nombre la marca varias veces.</p>
-          </section>
-
+          {gruposMetricas.map((grupo) => (
+            <ResumenMetricasGrupo key={grupo.clave} clave={grupo.clave}
+              etiqueta={`${grupo.etiqueta} · ${grupo.descripcion}`} metricas={metricas[grupo.clave]} />
+          ))}
           <section className="metricas-seccion" aria-labelledby="metricas-serie-titulo">
             <h2 id="metricas-serie-titulo">Evolución diaria</h2>
-            {metricas.serieDiaria.length === 0 ? (
+            {metricas.sinMarca.serieDiaria.length === 0 && metricas.conMarca.serieDiaria.length === 0 ? (
               <p className="metricas-vacio">No hubo ejecuciones en este período.</p>
             ) : (
-              <GraficoEvolucionDiaria
-                key={`${metricas.clienteUuid}:${metricas.desde}:${metricas.hasta}`}
-                metricas={metricas}
-              />
+              <GraficoEvolucionDiaria key={`${metricas.clienteUuid}:${metricas.desde}:${metricas.hasta}`} metricas={metricas} />
             )}
-          </section>
-
-          <section className="metricas-seccion" aria-labelledby="metricas-competidores-titulo">
-            <h2 id="metricas-competidores-titulo">Competidores en el período</h2>
-            {metricas.competidores.length === 0 ? (
-              <p className="metricas-vacio">No hay evaluaciones de competidores en este período.</p>
-            ) : (
-              <ul className="metricas-competidores">
-                {[...metricas.competidores]
-                  .sort((a, b) => b.menciones - a.menciones || a.nombre.localeCompare(b.nombre))
-                  .map((competidor) => (
-                    <li key={competidor.competidorUuid}>
-                      <strong>{competidor.nombre}</strong>
-                      <span><b>{enteros.format(competidor.menciones)}</b> {competidor.menciones === 1 ? 'mención' : 'menciones'}</span>
-                      <small>en {enteros.format(competidor.evaluaciones)} respuestas evaluadas · {tasaLegible(competidor.tasaMencion)}</small>
-                    </li>
-                  ))}
-              </ul>
-            )}
-            <p className="metricas-nota">Cada tasa usa las respuestas donde se evaluó a ese competidor; el denominador puede diferir del total del cliente.</p>
           </section>
         </div>
       )}
