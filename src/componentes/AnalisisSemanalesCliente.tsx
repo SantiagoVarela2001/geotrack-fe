@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/clienteApi'
-import type { BloqueInformeSemanal, DatosAnalisisSemanal, DatosCliente, DatosCuenta, Pagina } from '../api/tipos'
-import { obtenerMensajeError, tienePermiso } from '../utilidades'
+import type { BloqueInformeSemanal, CompetidorDetectadoInformeSemanal, DatosAnalisisSemanal, DatosCliente, DatosCuenta, Pagina } from '../api/tipos'
+import { obtenerMensajeError, tienePermiso, urlWebSegura } from '../utilidades'
 import { Aviso, Icono } from './Comun'
 import { esBloqueInforme, esInformeSeparado, formatoInforme } from '../informesSemanales'
 import { gruposMetricas } from '../metricas'
@@ -89,23 +89,52 @@ function BloqueInforme({ informe, clienteUuid }: { informe: BloqueInformeSemanal
   )
 }
 
+function CompetidoresDetectados({ competidores }: { competidores: CompetidorDetectadoInformeSemanal[] | null | undefined }) {
+  if (!competidores) return null
+  return (
+    <section className="analisis-competidores" aria-label="Competidores detectados">
+      <h2>Competidores detectados</h2>
+      {competidores.length === 0 ? (
+        <p className="texto-secundario">No se identificaron competidores en las respuestas analizadas</p>
+      ) : (
+        <ul className="analisis-lista analisis-competidores-lista">
+          {competidores.map((competidor, indice) => {
+            const url = urlWebSegura(competidor.urlFuente)
+            return (
+              <li key={`${indice}-${competidor.nombre}`}>
+                <strong>{competidor.nombre}</strong>
+                <p>{competidor.pregunta}</p>
+                {url && <a href={url} target="_blank" rel="noopener noreferrer">Ver fuente</a>}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+}
+
 /** Se comprueba cada resultado, incluso después de reintentar un contexto antiguo. */
 export function InformeSemanal({ analisis }: { analisis: DatosAnalisisSemanal }) {
   const informe = analisis.informe
   const formato = formatoInforme(informe)
   if (formato === 'ausente') return null
   if (formato === 'invalido') return <Aviso>El informe recibido tiene un formato incompleto o desconocido. Volvé a consultar el análisis.</Aviso>
-  if (esInformeSeparado(informe)) return (
-    <div className="analisis-grupos">
-      {gruposMetricas.map((grupo) => (
-        <section key={grupo.clave} aria-label={grupo.etiqueta}>
-          <h2>{grupo.etiqueta} · {grupo.descripcion}</h2>
-          <BloqueInforme informe={informe[grupo.clave]} clienteUuid={analisis.clienteUuid} />
-        </section>
-      ))}
-    </div>
+  return (
+    <>
+      {esInformeSeparado(informe) ? (
+        <div className="analisis-grupos">
+          {gruposMetricas.map((grupo) => (
+            <section key={grupo.clave} aria-label={grupo.etiqueta}>
+              <h2>{grupo.etiqueta} · {grupo.descripcion}</h2>
+              <BloqueInforme informe={informe[grupo.clave]} clienteUuid={analisis.clienteUuid} />
+            </section>
+          ))}
+        </div>
+      ) : esBloqueInforme(informe) ? <BloqueInforme informe={informe} clienteUuid={analisis.clienteUuid} /> : null}
+      <CompetidoresDetectados competidores={informe?.competidoresDetectados} />
+    </>
   )
-  return esBloqueInforme(informe) ? <BloqueInforme informe={informe} clienteUuid={analisis.clienteUuid} /> : null
 }
 
 export function AnalisisSemanalesCliente({

@@ -63,6 +63,10 @@ export const informeSeparado = {
   sinMarca: { ...informeAnterior, resumen: 'Resumen de presencia espontánea' },
   conMarca: { resumen: 'No hay respuestas analizadas en este grupo durante el período.', hallazgos: [], recomendaciones: [] },
 }
+export const competidoresDetectados = [
+  { nombre: 'Agencia Rival', pregunta: '¿Qué agencias recomendás para una PyME industrial?', urlFuente: 'https://rival.example/comparacion' },
+  { nombre: 'Otra Agencia', pregunta: '¿Qué agencia puede acompañar la expansión de mi empresa?', urlFuente: null },
+]
 export const analisis = {
   uuid: analisisUuid, clienteUuid, desde: '2026-11-01', hasta: '2026-11-07', estado: 'FINALIZADO',
   fechaInicio: '2026-11-07T18:00:00Z', fechaFin: '2026-11-07T18:01:00Z', intentos: 1,

@@ -13,6 +13,15 @@ export interface Novedad {
 // Fechas con zona horaria explícita: estas novedades duran 48 horas desde su publicación.
 export const novedades: Novedad[] = [
   {
+    id: 'competidores-detectados-informe-semanal',
+    titulo: 'Descubrí competidores en tus informes semanales',
+    descripcion:
+      'Los nuevos informes semanales muestran los competidores detectados en las respuestas analizadas, incluso si no los cargaste en tu lista. Podés ver la pregunta en la que aparecieron y consultar la fuente cuando esté disponible.',
+    publicadaEn: '2026-11-02T00:00:00-03:00',
+    expiraEn: '2026-11-04T00:00:00-03:00',
+    permisos: ['ANALISIS_SEMANALES_VER'],
+  },
+  {
     id: 'consultas-informes-con-sin-marca',
     titulo: 'Consultas e informes semanales con y sin marca',
     descripcion:

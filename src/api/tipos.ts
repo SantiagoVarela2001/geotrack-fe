@@ -235,7 +235,15 @@ export interface InformeSemanalSeparado {
   conMarca: BloqueInformeSemanal
 }
 
-export type InformeSemanal = BloqueInformeSemanal | InformeSemanalSeparado
+export interface CompetidorDetectadoInformeSemanal {
+  nombre: string
+  pregunta: string
+  urlFuente: string | null
+}
+
+export type InformeSemanal = (BloqueInformeSemanal | InformeSemanalSeparado) & {
+  competidoresDetectados?: CompetidorDetectadoInformeSemanal[] | null
+}
 
 export interface DatosAnalisisSemanal {
   uuid: string

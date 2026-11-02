@@ -5,23 +5,23 @@ import { cuenta } from './datos.mjs'
 
 const publicacion = Date.parse('2026-11-02T00:00:00-03:00')
 const expiracion = Date.parse('2026-11-04T00:00:00-03:00')
-const editora = { ...cuenta, permisos: ['CONSULTAS_VER', 'CONSULTAS_EDITAR'] }
+const editora = { ...cuenta, permisos: ['CONSULTAS_VER', 'CONSULTAS_EDITAR', 'ANALISIS_SEMANALES_VER'] }
 
 test('las novedades se publican en el instante indicado y desaparecen al cumplir 48 horas', () => {
   assert.equal(obtenerNovedadesVigentes(editora, publicacion - 1).length, 0)
-  assert.equal(obtenerNovedadesVigentes(editora, publicacion).length, 3)
-  assert.equal(obtenerNovedadesVigentes(editora, expiracion - 1).length, 3)
+  assert.equal(obtenerNovedadesVigentes(editora, publicacion).length, 4)
+  assert.equal(obtenerNovedadesVigentes(editora, expiracion - 1).length, 4)
   assert.equal(obtenerNovedadesVigentes(editora, expiracion).length, 0)
   assert.equal(expiracion - publicacion, 48 * 60 * 60 * 1000)
 })
 
 test('las novedades de edición respetan permisos y tipo de cuenta', () => {
   assert.equal(obtenerNovedadesVigentes({ ...cuenta, permisos: [] }, publicacion).length, 0)
-  for (const permiso of ['CONSULTAS_VER', 'ANALISIS_SEMANALES_VER']) {
-    assert.deepEqual(obtenerNovedadesVigentes({ ...cuenta, permisos: [permiso] }, publicacion).map((n) => n.id),
-      ['consultas-informes-con-sin-marca'])
-  }
-  assert.equal(obtenerNovedadesVigentes({ ...editora, tipoCuenta: 'PLATAFORMA', organizacionUuid: null }, publicacion).length, 1)
+  assert.deepEqual(obtenerNovedadesVigentes({ ...cuenta, permisos: ['CONSULTAS_VER'] }, publicacion).map((n) => n.id),
+    ['consultas-informes-con-sin-marca'])
+  assert.deepEqual(obtenerNovedadesVigentes({ ...cuenta, permisos: ['ANALISIS_SEMANALES_VER'] }, publicacion).map((n) => n.id),
+    ['competidores-detectados-informe-semanal', 'consultas-informes-con-sin-marca'])
+  assert.equal(obtenerNovedadesVigentes({ ...editora, tipoCuenta: 'PLATAFORMA', organizacionUuid: null }, publicacion).length, 2)
   assert.equal(obtenerNovedadesVigentes({ ...cuenta, permisos: ['CONSULTAS_CAMBIAR_TIPO'] }, publicacion).length, 0)
 })
 

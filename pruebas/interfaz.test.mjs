@@ -86,7 +86,7 @@ const cambiar = (selector, valor) => `(() => { const campo = document.querySelec
 const textoIncluye = (texto) => `document.body.innerText.includes(${JSON.stringify(texto)})`
 
 const ejecutable = await buscarNavegador()
-test('interacciones F02 en navegador real', { skip: !ejecutable && 'Configurar NAVEGADOR_PRUEBAS con Chrome, Edge o Chromium', timeout: 90000 }, async (t) => {
+test('interacciones del frontend en navegador real', { skip: !ejecutable && 'Configurar NAVEGADOR_PRUEBAS con Chrome, Edge o Chromium', timeout: 90000 }, async (t) => {
   const navegador = await abrirNavegador(ejecutable)
   t.after(() => navegador.cerrar())
 
@@ -98,7 +98,7 @@ test('interacciones F02 en navegador real', { skip: !ejecutable && 'Configurar N
     await navegador.esperar(`document.querySelector('.novedades-flotante') !== null`)
     await navegador.evaluar(`document.querySelector('.novedades-flotante').focus(); document.querySelector('.novedades-flotante').click()`)
     await navegador.esperar(`document.querySelector('.dialogo-novedades[open]') !== null`)
-    assert.equal(await navegador.evaluar(`document.querySelectorAll('.novedad').length`), 3)
+    assert.equal(await navegador.evaluar(`document.querySelectorAll('.novedad').length`), 4)
     assert.equal(await navegador.evaluar(`document.activeElement.getAttribute('aria-label')`), 'Cerrar novedades')
     await navegador.evaluar(pulsar('Entendido'))
     await navegador.esperar(`document.querySelector('.dialogo-novedades') === null`)
@@ -292,6 +292,44 @@ test('interacciones F02 en navegador real', { skip: !ejecutable && 'Configurar N
     await navegador.evaluar(`window.__prueba.errorMetricas = 0`)
     await navegador.evaluar(pulsar('Reintentar'))
     await navegador.esperar(`document.querySelectorAll('.metricas-grupo').length === 2`)
+  })
+
+  await t.test('F03: competidores del período en último análisis y detalle del historial, sin consultas adicionales', async () => {
+    await cargar(navegador, `/clientes/${datos.clienteUuid}/analisis-semanales`, {
+      analisis: { ...datos.analisis, informe: { ...datos.informeSeparado, competidoresDetectados: datos.competidoresDetectados } },
+      informeAnterior: { ...datos.informeAnterior, competidoresDetectados: datos.competidoresDetectados },
+    })
+    await navegador.esperar(`document.querySelectorAll('.analisis-competidores-lista li').length === 2`)
+    assert.equal(await navegador.evaluar(`document.querySelectorAll('.analisis-competidores').length`), 1)
+    assert.equal(await navegador.evaluar(`document.querySelector('.analisis-grupos .analisis-competidores') === null`), true)
+    assert.deepEqual(await navegador.evaluar(`[...document.querySelectorAll('.analisis-competidores-lista li')].map((li) => ({
+      nombre: li.querySelector('strong').textContent, pregunta: li.querySelector('p').textContent,
+      urlFuente: li.querySelector('a')?.href ?? null,
+    }))`), datos.competidoresDetectados)
+    assert.deepEqual(await navegador.evaluar(`(() => { const enlace = document.querySelector('.analisis-competidores a');
+      return { texto: enlace.textContent, target: enlace.target, rel: enlace.rel }; })()`),
+      { texto: 'Ver fuente', target: '_blank', rel: 'noopener noreferrer' })
+    await navegador.ajustarPantalla(1440, 1000)
+    await navegador.evaluar(`document.querySelector('.analisis-competidores').scrollIntoView({ block: 'center' })`)
+    await navegador.capturar('competidores-detectados-escritorio.png')
+    await navegador.ajustarPantalla(390, 844)
+    await navegador.evaluar(`document.querySelector('.analisis-competidores').scrollIntoView({ block: 'center' })`)
+    assert.equal(await navegador.evaluar(`document.documentElement.scrollWidth <= window.innerWidth`), true)
+    await navegador.capturar('competidores-detectados-movil.png')
+    await navegador.evaluar(`document.querySelector('.analisis-alternar').click()`)
+    await navegador.esperar(`document.querySelectorAll('.analisis-historial-lista button').length === 2`)
+    await navegador.evaluar(`document.querySelectorAll('.analisis-historial-lista button')[1].click()`)
+    await navegador.esperar(textoIncluye('Resumen anterior combinado'))
+    assert.equal(await navegador.evaluar(`document.querySelectorAll('.analisis-competidores-lista li').length`), 2)
+    await navegador.evaluar(pulsar('Volver al último'))
+    await navegador.esperar(textoIncluye('Resumen de presencia espontánea'))
+    const rutaBase = `/api/clientes-monitoreados/${datos.clienteUuid}`
+    assert.deepEqual(await navegador.evaluar(`window.__prueba.peticiones.map((p) => p.ruta).sort()`), [
+      '/api/autenticacion/renovar', '/api/autenticacion/actual', rutaBase,
+      `${rutaBase}/analisis-semanales/ultimo`, `${rutaBase}/analisis-semanales?pagina=0`,
+      `${rutaBase}/analisis-semanales/99999999-9999-4999-8999-999999999999`,
+    ].sort())
+    await navegador.ajustarPantalla(1440, 1000)
   })
 
   await t.test('último separado, historial anterior y evidencia por ejecución', async () => {

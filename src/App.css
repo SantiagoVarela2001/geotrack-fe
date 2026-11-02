@@ -4357,6 +4357,13 @@
 .pagina-analisis .analisis-recomendacion-titulo strong { font-size: 14px; }
 .pagina-analisis .analisis-prioridad { font-size: 11px; }
 .pagina-analisis .analisis-referencias { font-size: 12px; }
+.analisis-competidores { margin-top: 28px; padding-top: 24px; border-top: 1px solid #dce8eb; }
+.analisis-competidores h2 { margin: 0 0 16px; color: #21495c; font-size: 21px; }
+.analisis-competidores-lista li { overflow-wrap: anywhere; }
+.pagina-analisis .analisis-lista.analisis-competidores-lista li { padding: 18px 20px; }
+.pagina-analisis .analisis-competidores-lista li::before { content: none; }
+.analisis-competidores-lista strong { display: block; margin-bottom: 8px; color: #19364a; font-size: 14px; }
+.analisis-competidores-lista a { display: inline-block; margin-top: 10px; color: #166d91; font-size: 13px; font-weight: 650; }
 .pagina-analisis .analisis-historial {
   margin-top: 20px;
   border: 1px solid #dbe8eb;

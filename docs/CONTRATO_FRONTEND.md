@@ -656,7 +656,18 @@ La ruta base es `/api/clientes-monitoreados/{clienteUuid}/analisis-semanales`. `
 
 Desde el paso 7a de F02, los nuevos análisis envían a la IA un contexto propio con `metricas.sinMarca` y `metricas.conMarca`. Cada grupo conserva los conteos, tasas, serie diaria y competidores calculados por el backend, sin repetir `consultasMencionadas`: las preguntas y sus evidencias ya viajan en `ejecuciones`. Cada ejecución incluye `conMarca`, tomado de su clasificación histórica; `marcaMencionada` sigue indicando la aparición de la marca en la respuesta. La IA recibe instrucciones para distinguir ambos conceptos, usar `sinMarca` como presencia espontánea, conservar las tasas calculadas y tratar `null` como ausencia de muestra analizada.
 
-Desde el paso 7b de F02, el informe generado a partir de un contexto separado contiene únicamente `sinMarca` y `conMarca`. Ambos bloques están siempre presentes, cada uno con `resumen`, `hallazgos` y `recomendaciones`. `sinMarca` corresponde a presencia espontánea; `conMarca`, a respuestas de preguntas que nombran a la marca. No hay un resumen combinado en la raíz. El frontend debe distinguir el nuevo formato por la presencia de ambos bloques y conservar la presentación anterior para informes con los tres campos planos.
+Desde el paso 7b de F02, el informe generado a partir de un contexto separado contiene `sinMarca` y `conMarca`. Ambos bloques están siempre presentes, cada uno con `resumen`, `hallazgos` y `recomendaciones`. `sinMarca` corresponde a presencia espontánea; `conMarca`, a respuestas de preguntas que nombran a la marca. No hay un resumen combinado en la raíz. El frontend debe distinguir el nuevo formato por la presencia de ambos bloques y conservar la presentación anterior para informes con los tres campos planos.
+
+F03 agrega `informe.competidoresDetectados` en las respuestas existentes del último análisis (`GET .../ultimo`), detalle (`GET .../{analisisUuid}`) e historial (`GET ...?pagina=0`). Es una lista general del período, al mismo nivel que `sinMarca` y `conMarca`, que se muestra una sola vez. Cada elemento contiene `nombre`, `pregunta` (texto histórico visible) y `urlFuente` (URL o `null`):
+
+```json
+"competidoresDetectados": [
+  {"nombre":"Agencia Rival","pregunta":"¿Qué agencias recomendás para una PyME industrial?","urlFuente":"https://rival.example/comparacion"},
+  {"nombre":"Otra Agencia","pregunta":"¿Qué agencias recomendás para una PyME industrial?","urlFuente":null}
+]
+```
+
+Cuando la lista está vacía, mostrar «No se identificaron competidores en las respuestas analizadas». Si está ausente o es `null`, ocultar la sección para conservar la presentación de los informes anteriores, tanto planos como separados. Si `informe` es `null`, mantener el tratamiento actual del proceso. El enlace «Ver fuente» se muestra solo cuando hay una URL web válida y abre en otra pestaña con `rel="noopener noreferrer"`; sin enlace se conservan nombre y pregunta. La lista puede incluir empresas ajenas al catálogo del cliente y no requiere resolver UUID ni realizar consultas adicionales.
 
 Los contextos e informes anteriores se conservan sin reescribir: un reintento reutiliza exactamente la muestra guardada. Si tiene métricas combinadas, mantiene el formato anterior; si tiene métricas separadas, genera el nuevo. Se mantienen los fragmentos de hasta 600 caracteres, las citas, los conteos de fallos y los días sin resultados; su exclusión corresponde a F07.
 
