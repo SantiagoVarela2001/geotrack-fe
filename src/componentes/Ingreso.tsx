@@ -3,6 +3,7 @@ import { api, ErrorApi } from '../api/clienteApi'
 import type { DatosCuenta } from '../api/tipos'
 import { obtenerMensajeError } from '../utilidades'
 import { Aviso, Icono, Marca } from './Comun'
+import { CampoClave } from './CampoClave'
 
 export function Ingreso({ alIngresar }: { alIngresar: (cuenta: DatosCuenta) => void }) {
   const [usuario, cambiarUsuario] = useState('')
@@ -79,17 +80,14 @@ export function Ingreso({ alIngresar }: { alIngresar: (cuenta: DatosCuenta) => v
                 placeholder="tu@organizacion.com"
               />
             </label>
-            <label>
-              Contraseña
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={clave}
-                onChange={(evento) => cambiarClave(evento.target.value)}
-                required
-                placeholder="Ingresá tu contraseña"
-              />
-            </label>
+            <CampoClave
+              etiqueta="Contraseña"
+              autoComplete="current-password"
+              value={clave}
+              onChange={(evento) => cambiarClave(evento.target.value)}
+              required
+              placeholder="Ingresá tu contraseña"
+            />
             {error && <Aviso>{error}</Aviso>}
             <button className="boton boton-primario boton-ancho" disabled={cargando} type="submit">
               {cargando ? 'Ingresando…' : 'Ingresar'} <Icono nombre="flecha" tamano={18} />

@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { abrirNavegador, buscarNavegador } from './navegador.mjs'
 import * as datos from './datos.mjs'
+import { novedades } from '../src/datos/novedades.ts'
 
 function instalarApi(datos) {
   const nativo = window.fetch
@@ -19,8 +20,16 @@ function instalarApi(datos) {
     estado.peticiones.push({ ruta, metodo, cuerpo })
     const responder = (valor, status = 200) => new Response(JSON.stringify(valor), { status, headers: { 'Content-Type': 'application/json' } })
     const problema = (status) => new Response(JSON.stringify({ detail: `Rechazo ${status} del servidor` }), { status, headers: { 'Content-Type': 'application/problem+json' } })
-    if (ruta === '/api/autenticacion/renovar') return responder({ tokenAcceso: 'token-de-prueba', tipoToken: 'Bearer' })
+    if (ruta === '/api/autenticacion/renovar') return estado.sesionIniciada === false
+      ? problema(401) : responder({ tokenAcceso: 'token-de-prueba', tipoToken: 'Bearer' })
+    if (ruta === '/api/autenticacion/ingresar') {
+      estado.sesionIniciada = true
+      return responder({ tokenAcceso: 'token-de-prueba', tipoToken: 'Bearer' })
+    }
     if (ruta === '/api/autenticacion/actual') return responder(estado.cuenta)
+    if (ruta === '/api/usuarios/yo') return responder({ uuid: 'usuario-de-prueba', nombre: 'Persona de prueba',
+      correoElectronico: estado.cuenta.usuario, tipoCuenta: estado.cuenta.tipoCuenta })
+    if (ruta === '/api/usuarios/yo/clave' && metodo === 'PUT') return new Response(null, { status: 204 })
     if (ruta.endsWith('/logo')) return new Response(null, { status: 404 })
     if (ruta.endsWith('/consultas/generacion')) {
       estado.sondeosGeneracion++
@@ -90,15 +99,62 @@ test('interacciones del frontend en navegador real', { skip: !ejecutable && 'Con
   const navegador = await abrirNavegador(ejecutable)
   t.after(() => navegador.cerrar())
 
+  await t.test('ojito en login y perfil: conserva valores, alterna cada campo y no envía formularios', async () => {
+    await cargar(navegador, '/mi-perfil', { sesionIniciada: false })
+    await navegador.esperar(`document.querySelector('.ingreso .campo-clave') !== null`)
+    await navegador.evaluar(cambiar('.ingreso input[autocomplete="username"]', 'prueba@ejemplo.test'))
+    await navegador.evaluar(cambiar('.ingreso .campo-clave input', 'ClaveDePrueba123'))
+    assert.equal(await navegador.evaluar(`document.querySelector('.campo-clave input').type`), 'password')
+    for (const tipo of ['text', 'password']) {
+      await navegador.evaluar(`document.querySelector('.campo-clave-alternar').click()`)
+      await navegador.esperar(`document.querySelector('.campo-clave input').type === '${tipo}'`)
+      assert.equal(await navegador.evaluar(`document.querySelector('.campo-clave input').value`), 'ClaveDePrueba123')
+      assert.equal(await navegador.evaluar(`document.querySelector('.campo-clave-alternar').getAttribute('aria-pressed')`), String(tipo === 'text'))
+    }
+    assert.equal(await navegador.evaluar(`window.__prueba.peticiones.some((p) => p.metodo === 'POST' && p.ruta.endsWith('/ingresar'))`), false)
+    await navegador.ajustarPantalla(1440, 1000)
+    await navegador.capturar('ojito-login.png')
+    await navegador.evaluar(pulsar('Ingresar'))
+    await navegador.esperar(`document.querySelectorAll('.pagina-perfil .campo-clave').length === 3`)
+    const valores = ['ClaveDePrueba123', 'NuevaClaveDePrueba123', 'NuevaClaveDePrueba123']
+    for (const [indice, valor] of valores.entries()) {
+      await navegador.evaluar(cambiar(`.perfil-seccion-clave .campo-clave:nth-of-type(${indice + 1}) input`, valor))
+    }
+    for (const indice of [0, 1, 2]) {
+      await navegador.evaluar(`document.querySelectorAll('.pagina-perfil .campo-clave-alternar')[${indice}].click()`)
+      await navegador.esperar(`document.querySelectorAll('.pagina-perfil .campo-clave input')[${indice}].type === 'text'`)
+      assert.deepEqual(await navegador.evaluar(`[...document.querySelectorAll('.pagina-perfil .campo-clave input')].map((campo) => campo.value)`), valores)
+      assert.deepEqual(await navegador.evaluar(`[...document.querySelectorAll('.pagina-perfil .campo-clave input')].map((campo) => campo.type)`),
+        valores.map((_, posicion) => posicion === indice ? 'text' : 'password'))
+      await navegador.evaluar(`document.querySelectorAll('.pagina-perfil .campo-clave-alternar')[${indice}].click()`)
+      await navegador.esperar(`document.querySelectorAll('.pagina-perfil .campo-clave input')[${indice}].type === 'password'`)
+    }
+    assert.equal(await navegador.evaluar(`window.__prueba.peticiones.some((p) => p.metodo === 'PUT')`), false)
+    await navegador.capturar('ojito-perfil-escritorio.png')
+    await navegador.ajustarPantalla(390, 844)
+    await navegador.evaluar(`document.querySelector('.perfil-seccion-clave').scrollIntoView({ block: 'center' })`)
+    assert.equal(await navegador.evaluar(`document.documentElement.scrollWidth <= window.innerWidth`), true)
+    await navegador.capturar('ojito-perfil-movil.png')
+    await navegador.evaluar(pulsar('Cambiar contraseña'))
+    await navegador.esperar(textoIncluye('La contraseña cambió.'))
+    assert.deepEqual(await navegador.evaluar(`window.__prueba.peticiones.find((p) => p.ruta === '/api/usuarios/yo/clave').cuerpo`),
+      { claveActual: valores[0], claveNueva: valores[1] })
+    assert.deepEqual(await navegador.evaluar(`[...document.querySelectorAll('.pagina-perfil .campo-clave input')].map((campo) => campo.value)`), ['', '', ''])
+    await navegador.ajustarPantalla(1440, 1000)
+  })
+
+  // Verifica el nuevo anuncio y su vencimiento conservando foco, reapertura y presentación móvil.
   await t.test('novedades: lectura, foco, reapertura y vencimiento con la aplicación abierta', async () => {
     await cargar(navegador, `/clientes/${datos.clienteUuid}`, {
-      ahoraNovedades: Date.parse('2026-11-02T12:00:00-03:00'),
+      ahoraNovedades: Date.parse(novedades[0].publicadaEn) + 1000,
       cuenta: { ...datos.cuenta, permisos: [...datos.cuenta.permisos, 'CONSULTAS_EDITAR'] },
     })
     await navegador.esperar(`document.querySelector('.novedades-flotante') !== null`)
     await navegador.evaluar(`document.querySelector('.novedades-flotante').focus(); document.querySelector('.novedades-flotante').click()`)
     await navegador.esperar(`document.querySelector('.dialogo-novedades[open]') !== null`)
-    assert.equal(await navegador.evaluar(`document.querySelectorAll('.novedad').length`), 4)
+    assert.equal(await navegador.evaluar(`document.querySelectorAll('.novedad').length`), 1)
+    assert.equal(await navegador.evaluar(`document.querySelector('.novedad h3').textContent`), novedades[0].titulo)
+    assert.equal(await navegador.evaluar(`document.querySelector('.novedad p').textContent`), novedades[0].descripcion)
     assert.equal(await navegador.evaluar(`document.activeElement.getAttribute('aria-label')`), 'Cerrar novedades')
     await navegador.evaluar(pulsar('Entendido'))
     await navegador.esperar(`document.querySelector('.dialogo-novedades') === null`)
@@ -118,7 +174,7 @@ test('interacciones del frontend en navegador real', { skip: !ejecutable && 'Con
     // Acerca el vencimiento y deja avanzar el reloj: el temporizador debe cerrar sin recargar ni cambiar el foco.
     await navegador.evaluar(`(() => {
       const inicio = performance.now();
-      Date.now = () => Date.parse('2026-11-04T00:00:00-03:00') - 300 + performance.now() - inicio;
+      Date.now = () => ${Date.parse(novedades[0].expiraEn)} - 300 + performance.now() - inicio;
       window.dispatchEvent(new Event('focus'));
     })()`)
     await navegador.esperar(`document.querySelector('.novedades-flotante') === null && document.querySelector('.dialogo-novedades') === null`)

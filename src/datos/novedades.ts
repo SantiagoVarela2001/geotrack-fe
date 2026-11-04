@@ -10,15 +10,24 @@ export interface Novedad {
   tiposCuenta?: DatosCuenta['tipoCuenta'][]
 }
 
-// Fechas con zona horaria explícita: estas novedades duran 48 horas desde su publicación.
+// Vigentes durante una semana desde el 4 de noviembre, con horario de Argentina.
 export const novedades: Novedad[] = [
+  {
+    id: 'reconocimiento-competidores-dominios-citas',
+    titulo: 'Mejor reconocimiento de competidores',
+    descripcion:
+      'Ahora reconocemos referencias a tus competidores por nombre, dominio y subdominio. Las apariciones en fuentes citadas también cuentan en sus métricas. Los resultados anteriores se conservan.',
+    publicadaEn: '2026-11-04T00:00:00-03:00',
+    expiraEn: '2026-11-11T00:00:00-03:00',
+    permisos: ['CONSULTAS_VER'],
+  },
   {
     id: 'competidores-detectados-informe-semanal',
     titulo: 'Descubrí competidores en tus informes semanales',
     descripcion:
       'Los nuevos informes semanales muestran los competidores detectados en las respuestas analizadas, incluso si no los cargaste en tu lista. Podés ver la pregunta en la que aparecieron y consultar la fuente cuando esté disponible.',
-    publicadaEn: '2026-11-02T00:00:00-03:00',
-    expiraEn: '2026-11-04T00:00:00-03:00',
+    publicadaEn: '2026-11-04T00:00:00-03:00',
+    expiraEn: '2026-11-11T00:00:00-03:00',
     permisos: ['ANALISIS_SEMANALES_VER'],
   },
   {
@@ -26,8 +35,8 @@ export const novedades: Novedad[] = [
     titulo: 'Consultas e informes semanales con y sin marca',
     descripcion:
       'Ahora podés distinguir las consultas que nombran tu marca de las que no la incluyen. Los nuevos informes semanales también separan los resultados para diferenciar la presencia espontánea de las respuestas a preguntas que mencionan tu marca.',
-    publicadaEn: '2026-11-02T00:00:00-03:00',
-    expiraEn: '2026-11-04T00:00:00-03:00',
+    publicadaEn: '2026-11-04T00:00:00-03:00',
+    expiraEn: '2026-11-11T00:00:00-03:00',
     permisos: ['CONSULTAS_VER', 'ANALISIS_SEMANALES_VER'],
   },
   {
@@ -35,8 +44,8 @@ export const novedades: Novedad[] = [
     titulo: 'Corregí la clasificación de tus consultas',
     descripcion:
       'Podés indicar si una consulta es con marca o sin marca y corregir su clasificación, incluso después de aprobarla. El cambio se aplica a las próximas ejecuciones; las anteriores y las que ya están en cola conservan su clasificación original.',
-    publicadaEn: '2026-11-02T00:00:00-03:00',
-    expiraEn: '2026-11-04T00:00:00-03:00',
+    publicadaEn: '2026-11-04T00:00:00-03:00',
+    expiraEn: '2026-11-11T00:00:00-03:00',
     permisos: ['CONSULTAS_EDITAR'],
     tiposCuenta: ['ORGANIZACION'],
   },
@@ -45,8 +54,8 @@ export const novedades: Novedad[] = [
     titulo: 'Editá tus consultas en borrador',
     descripcion:
       'Antes de aprobar una consulta, podés modificar su texto, tema, prioridad, tipo y clasificación con o sin marca. Ajustá tus preguntas mientras estén en borrador.',
-    publicadaEn: '2026-11-02T00:00:00-03:00',
-    expiraEn: '2026-11-04T00:00:00-03:00',
+    publicadaEn: '2026-11-04T00:00:00-03:00',
+    expiraEn: '2026-11-11T00:00:00-03:00',
     permisos: ['CONSULTAS_EDITAR'],
     tiposCuenta: ['ORGANIZACION'],
   },

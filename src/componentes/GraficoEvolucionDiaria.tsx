@@ -164,7 +164,7 @@ export function GraficoEvolucionDiaria({ metricas }: { metricas: DatosMetricasCl
                   <span>{competidor.nombre}</span><strong>{enteros.format(competidor.menciones)}</strong>
                   <small>de {enteros.format(competidor.evaluaciones)} evaluadas · {tasaLegible(competidor.tasaMencion)}</small>
                 </li>)}</ul>
-              ) : !explorando ? <button type="button" onClick={() => cambiarExplorando(true)}>Ver competencia de este día</button>
+              ) : !explorando ? <button className="boton boton-secundario boton-chico" type="button" onClick={() => cambiarExplorando(true)}>Ver competencia de este día</button>
                 : errorDetalle?.dia === diaSeleccionado.dia ? <div className="metricas-diario-error"><p>{errorDetalle.mensaje}</p>
                   <button type="button" onClick={() => { cambiarErrorDetalle(null); cambiarReintentos((actual) => actual + 1) }}>Reintentar</button>
                 </div> : <p role="status">Cargando menciones de competidores…</p>}

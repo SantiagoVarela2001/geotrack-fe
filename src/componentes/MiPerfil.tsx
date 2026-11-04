@@ -3,6 +3,7 @@ import { ErrorApi, api } from '../api/clienteApi'
 import type { DatosCuenta, DatosPerfil } from '../api/tipos'
 import { obtenerMensajeError } from '../utilidades'
 import { Aviso, Icono } from './Comun'
+import { CampoClave } from './CampoClave'
 
 function mensajeErrorPerfil(causa: unknown): string {
   if (causa instanceof ErrorApi) {
@@ -301,24 +302,15 @@ export function MiPerfil({ cuenta, alActualizarCuenta }: {
             </div>
           </div>
           <form className="formulario apilado" onSubmit={guardarClave}>
-            <label>
-              Contraseña actual
-              <input required type="password" autoComplete="current-password"
-                value={claveActual} disabled={guardandoClave}
-                onChange={(evento) => cambiarClaveActual(evento.target.value)} />
-            </label>
-            <label>
-              Nueva contraseña
-              <input required type="password" autoComplete="new-password"
-                value={claveNueva} disabled={guardandoClave}
-                onChange={(evento) => cambiarClaveNueva(evento.target.value)} />
-            </label>
-            <label>
-              Confirmar nueva contraseña
-              <input required type="password" autoComplete="new-password"
-                value={confirmacionClave} disabled={guardandoClave}
-                onChange={(evento) => cambiarConfirmacionClave(evento.target.value)} />
-            </label>
+            <CampoClave etiqueta="Contraseña actual" required autoComplete="current-password"
+              value={claveActual} disabled={guardandoClave}
+              onChange={(evento) => cambiarClaveActual(evento.target.value)} />
+            <CampoClave etiqueta="Nueva contraseña" required autoComplete="new-password"
+              value={claveNueva} disabled={guardandoClave}
+              onChange={(evento) => cambiarClaveNueva(evento.target.value)} />
+            <CampoClave etiqueta="Confirmar nueva contraseña" required autoComplete="new-password"
+              value={confirmacionClave} disabled={guardandoClave}
+              onChange={(evento) => cambiarConfirmacionClave(evento.target.value)} />
             {errorClave && <Aviso>{errorClave}</Aviso>}
             {exitoClave && <Aviso tipo="exito">{exitoClave}</Aviso>}
             <button className="boton boton-primario" type="submit" disabled={guardandoClave}>

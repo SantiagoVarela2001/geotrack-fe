@@ -87,7 +87,7 @@ export function Novedades({ cuenta }: { cuenta: DatosCuenta }) {
         aria-controls={abierta ? 'ventana-novedades' : undefined}
         onClick={() => { cambiarAhora(Date.now()); cambiarAbierta(true) }}>
         <span className="novedades-flotante-icono">
-          <Icono nombre="megafono" tamano={25} />
+          <Icono nombre="megafono" tamano={20} />
         </span>
         <span>¡Hay novedades!</span>
       </button>

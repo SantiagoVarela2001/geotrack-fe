@@ -17,6 +17,7 @@ type NombreIcono =
   | 'estrella'
   | 'escudo'
   | 'ver'
+  | 'ocultar'
   | 'archivar'
   | 'reactivar'
   | 'eliminar'
@@ -101,6 +102,11 @@ export function Icono({
       <>
         <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
         <circle cx="12" cy="12" r="2.5" />
+      </>
+    ),
+    ocultar: (
+      <>
+        <path d="m3 3 18 18M10.5 6.1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3 3.5M6.1 6.1A20 20 0 0 0 2 12s3.5 6 10 6a13 13 0 0 0 5.9-1.9M10.2 10.2a2.5 2.5 0 0 0 3.6 3.6" />
       </>
     ),
     archivar: (

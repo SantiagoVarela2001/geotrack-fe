@@ -3,6 +3,7 @@ import { ErrorApi, api } from '../api/clienteApi'
 import type { DatosCuenta, DatosOrganizacion, DatosPlan, RespuestaUsuario } from '../api/tipos'
 import { obtenerMensajeError, tienePermiso } from '../utilidades'
 import { Aviso, Icono } from './Comun'
+import { CampoClave } from './CampoClave'
 import { GestionUsuarios } from './GestionUsuarios'
 
 function mensajeErrorAltaUsuario(causa: unknown): string {
@@ -365,17 +366,14 @@ export function Administracion({ cuenta }: { cuenta: DatosCuenta }) {
                   placeholder="persona@agencia.com"
                 />
               </label>
-              <label>
-                Contraseña inicial
-                <input
-                  required
-                  type="password"
-                  autoComplete="new-password"
-                  value={clave}
-                  onChange={(evento) => cambiarClave(evento.target.value)}
-                  placeholder="Contraseña elegida"
-                />
-              </label>
+              <CampoClave
+                etiqueta="Contraseña inicial"
+                required
+                autoComplete="new-password"
+                value={clave}
+                onChange={(evento) => cambiarClave(evento.target.value)}
+                placeholder="Contraseña elegida"
+              />
               <label>
                 Rol
                 <select
