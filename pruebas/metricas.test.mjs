@@ -7,7 +7,7 @@ import { alinearSeries, tasaLegible } from '../src/metricas.ts'
 import { ResumenMetricasGrupo } from '../src/componentes/MetricasCliente.tsx'
 import { BloquesInformeGrupo } from '../src/componentes/InformeMetricas.tsx'
 import { GraficoEvolucionDiaria } from '../src/componentes/GraficoEvolucionDiaria.tsx'
-import { metricas, grupo, consultaUuid } from './datos.mjs'
+import { acciones, metricas, grupo, consultaUuid } from './datos.mjs'
 
 function resumen(clave, datos = metricas[clave]) {
   return renderToStaticMarkup(createElement(ResumenMetricasGrupo, { metricas: datos, clave, etiqueta: clave === 'sinMarca' ? 'Sin marca' : 'Con marca' }))
@@ -75,4 +75,23 @@ test('la misma consulta histórica permanece en ambos rankings y los totales no 
   const html = resumen('sinMarca', { ...metricas.sinMarca, mencionesMarca: 20 })
   assert.match(html, /20 de 4 analizadas/)
   assert.match(html, /2 respuestas evaluadas · 50 %/)
+})
+
+test('marcadores agrupados e independientes: agregar, mover o eliminar no altera las curvas', () => {
+  const dibujar = (listado, datos = metricas) => renderToStaticMarkup(createElement(GraficoEvolucionDiaria,
+    { metricas: datos, acciones: listado }))
+  const sinAcciones = dibujar([])
+  const conAcciones = dibujar(acciones)
+  const curvas = (html) => [...html.matchAll(/<polyline[^>]*points="([^"]+)"/g)].map((m) => m[1])
+  assert.deepEqual(curvas(conAcciones), curvas(sinAcciones))
+  assert.equal((conAcciones.match(/class="accion-marcador"/g) ?? []).length, 2)
+  assert.match(conAcciones, /aria-label="2 acciones: 3 de noviembre de 2026"/)
+  assert.doesNotMatch(conAcciones, /Primera publicación/)
+  assert.doesNotMatch(dibujar(acciones.map((a) => ({ ...a, fecha: '2020-01-01' }))), /class="accion-marcador"/)
+  assert.doesNotMatch(dibujar(acciones.map((a) => ({ ...a, clienteUuid: 'otro-cliente' }))), /class="accion-marcador"/)
+  assert.doesNotMatch(dibujar([]), /class="accion-marcador"/)
+  const vacias = { ...metricas, sinMarca: grupo(), conMarca: grupo() }
+  assert.match(dibujar(acciones, vacias), /aria-label="2 acciones: 3 de noviembre de 2026"/)
+  assert.deepEqual(vacias.sinMarca.serieDiaria, [])
+  assert.deepEqual(metricas.sinMarca.serieDiaria.map((d) => d.tasaMencionMarca), [25, null])
 })

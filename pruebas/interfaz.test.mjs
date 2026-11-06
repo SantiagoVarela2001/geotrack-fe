@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { abrirNavegador, buscarNavegador } from './navegador.mjs'
 import * as datos from './datos.mjs'
-import { novedades } from '../src/datos/novedades.ts'
+import { novedades, obtenerNovedadesVigentes } from '../src/datos/novedades.ts'
 
 function instalarApi(datos) {
   const nativo = window.fetch
@@ -31,6 +31,7 @@ function instalarApi(datos) {
       correoElectronico: estado.cuenta.usuario, tipoCuenta: estado.cuenta.tipoCuenta })
     if (ruta === '/api/usuarios/yo/clave' && metodo === 'PUT') return new Response(null, { status: 204 })
     if (ruta.endsWith('/logo')) return new Response(null, { status: 404 })
+    if (ruta === '/api/clientes-monitoreados') return responder(estado.clientes ?? [estado.cliente])
     if (ruta.endsWith('/consultas/generacion')) {
       estado.sondeosGeneracion++
       if (estado.demoraGeneracion) await new Promise((resolver) => setTimeout(resolver, estado.demoraGeneracion))
@@ -41,7 +42,49 @@ function instalarApi(datos) {
         .map((consulta) => ({ ...consulta, ejecucionHoy: consulta.ejecucionHoy ?? null })),
     })))
     if (ruta.endsWith('/temas')) return responder(estado.temas)
-    if (ruta.includes('/metricas?')) return estado.errorMetricas ? problema(estado.errorMetricas) : responder(estado.metricas)
+    if (ruta.includes('/acciones')) {
+      const url = new URL(ruta, location.origin)
+      const uuid = url.pathname.split('/acciones/')[1]
+      if (metodo === 'GET') {
+        const copia = structuredClone(estado.acciones)
+        const error = estado.errorAcciones
+        const desde = url.searchParams.get('desde')
+        const hasta = url.searchParams.get('hasta')
+        const demora = estado.demorasAcciones?.[desde] ?? 0
+        if (demora) await new Promise((resolver) => setTimeout(resolver, demora))
+        if (error) return problema(error)
+        return responder(uuid ? copia.find((a) => a.uuid === uuid)
+          : copia.filter((a) => !desde || a.fecha >= desde && a.fecha <= hasta))
+      }
+      if (estado.errorEscrituraAcciones) return problema(estado.errorEscrituraAcciones)
+      if (estado.demoraEscrituraAcciones) await new Promise((resolver) => setTimeout(resolver, estado.demoraEscrituraAcciones))
+      if (metodo === 'DELETE') {
+        if (!estado.acciones.some((a) => a.uuid === uuid)) return problema(404)
+        estado.acciones = estado.acciones.filter((a) => a.uuid !== uuid)
+        return new Response(null, { status: 204 })
+      }
+      const normalizados = Object.fromEntries(Object.entries(cuerpo).map(([k, v]) => [k, typeof v === 'string' ? v.trim() || null : v]))
+      const accion = { ...normalizados, clienteUuid: estado.clienteUuid, uuid: uuid ?? 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' }
+      estado.acciones = [accion, ...estado.acciones.filter((a) => a.uuid !== accion.uuid)]
+        .sort((a, b) => b.fecha.localeCompare(a.fecha))
+      return responder(accion, metodo === 'POST' ? 201 : 200)
+    }
+    if (ruta.includes('/metricas?')) {
+      const filtros = new URL(ruta, location.origin).searchParams
+      const desde = filtros.get('desde')
+      const hasta = filtros.get('hasta')
+      const copia = structuredClone(estado.metricas)
+      const demora = estado.demorasMetricas?.[desde] ?? 0
+      if (demora) await new Promise((resolver) => setTimeout(resolver, demora))
+      if (estado.errorMetricas) return problema(estado.errorMetricas)
+      if (estado.metricasPorPeriodo) {
+        copia.desde = desde
+        copia.hasta = hasta
+        for (const clave of ['sinMarca', 'conMarca']) copia[clave].serieDiaria = copia[clave].serieDiaria
+          .filter((d) => d.dia >= desde && d.dia <= hasta)
+      }
+      return responder(copia)
+    }
     if (ruta.endsWith('/marca') && metodo === 'PATCH') {
       if (estado.errorMarca) return problema(estado.errorMarca)
       const uuid = ruta.split('/').at(-2)
@@ -95,7 +138,7 @@ const cambiar = (selector, valor) => `(() => { const campo = document.querySelec
 const textoIncluye = (texto) => `document.body.innerText.includes(${JSON.stringify(texto)})`
 
 const ejecutable = await buscarNavegador()
-test('interacciones del frontend en navegador real', { skip: !ejecutable && 'Configurar NAVEGADOR_PRUEBAS con Chrome, Edge o Chromium', timeout: 90000 }, async (t) => {
+test('interacciones del frontend en navegador real', { skip: !ejecutable && 'Configurar NAVEGADOR_PRUEBAS con Chrome, Edge o Chromium', timeout: 150000 }, async (t) => {
   const navegador = await abrirNavegador(ejecutable)
   t.after(() => navegador.cerrar())
 
@@ -147,12 +190,13 @@ test('interacciones del frontend en navegador real', { skip: !ejecutable && 'Con
   await t.test('novedades: lectura, foco, reapertura y vencimiento con la aplicación abierta', async () => {
     await cargar(navegador, `/clientes/${datos.clienteUuid}`, {
       ahoraNovedades: Date.parse(novedades[0].publicadaEn) + 1000,
-      cuenta: { ...datos.cuenta, permisos: [...datos.cuenta.permisos, 'CONSULTAS_EDITAR'] },
+      cuenta: datos.cuentaAcciones,
     })
     await navegador.esperar(`document.querySelector('.novedades-flotante') !== null`)
     await navegador.evaluar(`document.querySelector('.novedades-flotante').focus(); document.querySelector('.novedades-flotante').click()`)
     await navegador.esperar(`document.querySelector('.dialogo-novedades[open]') !== null`)
-    assert.equal(await navegador.evaluar(`document.querySelectorAll('.novedad').length`), 1)
+    assert.equal(await navegador.evaluar(`document.querySelectorAll('.novedad').length`),
+      obtenerNovedadesVigentes(datos.cuentaAcciones, Date.parse(novedades[0].publicadaEn) + 1000).length)
     assert.equal(await navegador.evaluar(`document.querySelector('.novedad h3').textContent`), novedades[0].titulo)
     assert.equal(await navegador.evaluar(`document.querySelector('.novedad p').textContent`), novedades[0].descripcion)
     assert.equal(await navegador.evaluar(`document.activeElement.getAttribute('aria-label')`), 'Cerrar novedades')
@@ -317,6 +361,8 @@ test('interacciones del frontend en navegador real', { skip: !ejecutable && 'Con
   await t.test('métricas mixtas, una lectura inicial, competencia diaria compartida y PDF separado', async () => {
     await cargar(navegador, `/clientes/${datos.clienteUuid}/metricas`)
     await navegador.esperar(`document.querySelectorAll('.metricas-grupo').length === 2`)
+    assert.equal(await navegador.evaluar(`Boolean(document.querySelector('.panel-evolucion').compareDocumentPosition(document.querySelector('.metricas-grupo')) & Node.DOCUMENT_POSITION_FOLLOWING)`), true)
+    assert.equal(await navegador.evaluar(`document.querySelector('.metricas-diario-grafico').getBoundingClientRect().height <= 220`), true)
     const grupos = await navegador.evaluar(`[...document.querySelectorAll('.metricas-grupo')].map((grupo) => grupo.innerText)`)
     assert.match(grupos[0], /25 %/)
     assert.match(grupos[1], /100 %/)
@@ -348,6 +394,189 @@ test('interacciones del frontend en navegador real', { skip: !ejecutable && 'Con
     await navegador.evaluar(`window.__prueba.errorMetricas = 0`)
     await navegador.evaluar(pulsar('Reintentar'))
     await navegador.esperar(`document.querySelectorAll('.metricas-grupo').length === 2`)
+  })
+
+  const cargarAcciones = (ruta, cambios = {}) => cargar(navegador, ruta,
+    { cuenta: datos.cuentaAcciones, metricasPorPeriodo: true, ...cambios })
+  async function periodoAcciones(desde, hasta) {
+    await navegador.evaluar(cambiar('#metricas-desde', desde))
+    await navegador.evaluar(cambiar('#metricas-hasta', hasta))
+    await navegador.evaluar(`document.querySelector('.metricas-filtros').requestSubmit()`)
+  }
+
+  await t.test('F10: acceso junto a métricas, alta con errores, sin envíos duplicados y eliminación 204', async () => {
+    await cargarAcciones('/clientes')
+    await navegador.esperar(`document.querySelector('.cliente-accion-acciones') !== null`)
+    await navegador.evaluar(`document.querySelector('.cliente-accion-acciones').click()`)
+    await navegador.esperar(`location.hash.endsWith('/acciones') && document.querySelector('.pagina-acciones') !== null`)
+    await cargarAcciones(`/clientes/${datos.clienteUuid}`)
+    await navegador.esperar(`document.querySelector('.detalle-acciones .detalle-accion-acciones') !== null`)
+    await navegador.evaluar(pulsar('Acciones realizadas'))
+    await navegador.esperar(`document.querySelectorAll('#acciones-cliente .accion-fila').length === 4`)
+    assert.equal(await navegador.evaluar(`location.hash.endsWith('/acciones') && document.querySelector('.detalle-ficha') === null`), true)
+    await navegador.esperar(`document.querySelector('.pagina-acciones .metricas-diario-grafico') !== null`)
+    assert.equal(await navegador.evaluar(`Boolean(document.querySelector('.panel-evolucion').compareDocumentPosition(document.querySelector('#acciones-cliente')) & Node.DOCUMENT_POSITION_FOLLOWING)`), true)
+    await navegador.capturar('f10-acciones-pagina.png')
+    await navegador.ajustarPantalla(390, 844)
+    await navegador.esperar(`document.documentElement.scrollWidth <= window.innerWidth`)
+    await navegador.capturar('f10-acciones-pagina-movil.png')
+    await navegador.ajustarPantalla(1280, 1000)
+    assert.deepEqual(await navegador.evaluar(`[...document.querySelectorAll('#acciones-cliente .accion-fila h4')].map((e) => e.textContent)`), datos.acciones.map((a) => a.titulo))
+    await navegador.evaluar(pulsar('Registrar acción'))
+    await navegador.esperar(`document.querySelector('.formulario-accion[open]') !== null`)
+    await navegador.evaluar(cambiar('#accion-titulo', '  Nueva publicación  '))
+    await navegador.evaluar(cambiar('#accion-fecha', '2020-01-02'))
+    await navegador.evaluar(cambiar('#accion-descripcion', 'Detalles conservados'))
+    for (const estado of [403, 409]) {
+      await navegador.evaluar(`window.__prueba.errorEscrituraAcciones = ${estado}; document.querySelector('.formulario-accion form').requestSubmit()`)
+      await navegador.esperar(textoIncluye(`Rechazo ${estado} del servidor`))
+      assert.equal(await navegador.evaluar(`document.querySelector('#accion-descripcion').value`), 'Detalles conservados')
+    }
+    await navegador.evaluar(`window.__prueba.errorEscrituraAcciones = 0; window.__prueba.demoraEscrituraAcciones = 200;
+      document.querySelector('.formulario-accion form').requestSubmit(); document.querySelector('.formulario-accion form').requestSubmit()`)
+    await navegador.esperar(`document.querySelector('.formulario-accion') === null && document.querySelectorAll('#acciones-cliente .accion-fila').length === 5`)
+    assert.equal(await navegador.evaluar(`window.__prueba.peticiones.filter((p) => p.metodo === 'POST' && p.ruta.endsWith('/acciones')).length`), 3)
+    assert.match(await navegador.evaluar(`document.querySelector('#acciones-cliente').innerText`), /Nueva publicación/)
+    await navegador.evaluar(`document.querySelector('[aria-label="Eliminar acción: Nueva publicación"]').click()`)
+    await navegador.esperar(`document.querySelector('#accion-eliminar-titulo') !== null`)
+    await navegador.evaluar(pulsar('Eliminar acción'))
+    await navegador.esperar(`document.querySelectorAll('#acciones-cliente .accion-fila').length === 4 && document.querySelector('#accion-eliminar-titulo') === null`)
+  })
+
+  await t.test('F10: plataforma y archivados conservan lectura sin escrituras', async () => {
+    for (const cambios of [
+      { cuenta: { ...datos.cuentaAcciones, tipoCuenta: 'PLATAFORMA', roles: ['SYSADMIN'] } },
+      { cliente: { ...datos.cliente, estado: 'ARCHIVADO' } },
+      { cuenta: { ...datos.cuentaAcciones, permisos: ['CLIENTES_VER', 'ACCIONES_VER'] } },
+    ]) {
+      await cargarAcciones('/clientes', cambios)
+      await navegador.esperar(`document.querySelector('.cliente-accion-acciones') !== null`)
+      assert.equal(await navegador.evaluar(`document.querySelector('.cliente-accion-acciones').disabled`), false)
+      await cargarAcciones(`/clientes/${datos.clienteUuid}`, cambios)
+      await navegador.esperar(`document.querySelector('.detalle-accion-acciones') !== null`)
+      await navegador.evaluar(pulsar('Acciones realizadas'))
+      await navegador.esperar(`document.querySelectorAll('#acciones-cliente .accion-fila').length === 4`)
+      assert.equal(await navegador.evaluar(`document.querySelector('#acciones-cliente button') === null`), true)
+    }
+    await cargar(navegador, '/clientes')
+    await navegador.esperar(`document.querySelector('.cliente-fila') !== null`)
+    assert.equal(await navegador.evaluar(`document.querySelector('.cliente-accion-acciones') === null`), true)
+  })
+
+  await t.test('acciones: recarga directa, gráfico compartido y actualización conjunta con el listado', async () => {
+    await cargarAcciones(`/clientes/${datos.clienteUuid}/acciones`)
+    await navegador.esperar(`document.querySelectorAll('#acciones-cliente .accion-fila').length === 4`)
+    await periodoAcciones('2026-11-01', '2026-11-03')
+    await navegador.esperar(`document.querySelectorAll('.accion-marcador').length === 2`)
+    assert.equal(await navegador.evaluar(`document.querySelectorAll('#acciones-cliente .accion-fila').length`), 4)
+    await navegador.evaluar(`document.querySelector('#acciones-cliente [aria-label="Editar acción: Publicamos casos de éxito"]').click()`)
+    await navegador.esperar(`document.querySelector('#accion-titulo') !== null`)
+    await navegador.evaluar(cambiar('#accion-fecha', '2020-01-01'))
+    await navegador.evaluar(`document.querySelector('.formulario-accion form').requestSubmit()`)
+    await navegador.esperar(`document.querySelector('.formulario-accion') === null && document.querySelector('.accion-marcador[aria-label^="1 acción: 3"]') !== null && document.querySelectorAll('#acciones-cliente .accion-fila').length === 4`)
+    await navegador.evaluar(`document.querySelector('.accion-marcador[aria-label^="1 acción: 3"]').click()`)
+    await navegador.evaluar(`document.querySelector('.acciones-del-dia [aria-label="Eliminar acción: Mejoramos preguntas frecuentes"]').click()`)
+    await navegador.esperar(`document.querySelector('#accion-eliminar-titulo') !== null`)
+    await navegador.evaluar(pulsar('Eliminar acción'))
+    await navegador.esperar(`document.querySelectorAll('.accion-marcador').length === 1 && document.querySelectorAll('#acciones-cliente .accion-fila').length === 3`)
+    await navegador.evaluar(pulsar('Ver tendencia'))
+    await navegador.esperar(`document.querySelectorAll('.metricas-diario-regresion').length === 2`)
+    await navegador.evaluar(pulsar('Ocultar tendencia'))
+    assert.equal(await navegador.evaluar(`document.querySelectorAll('.metricas-diario-regresion').length`), 0)
+  })
+
+  await t.test('F10: consultas paralelas, agrupación, teclado y días sin mediciones', async () => {
+    const sinMediciones = { ...datos.metricas, sinMarca: datos.grupo(), conMarca: datos.grupo() }
+    await cargarAcciones(`/clientes/${datos.clienteUuid}/metricas`, { metricas: sinMediciones })
+    await navegador.esperar(`document.querySelector('.metricas-filtros') !== null`)
+    await periodoAcciones('2026-11-01', '2026-11-03')
+    await navegador.esperar(`document.querySelectorAll('.accion-marcador').length === 2`)
+    const solicitudes = await navegador.evaluar(`window.__prueba.peticiones.filter((p) => p.ruta.includes('?desde=2026-11-01&hasta=2026-11-03')).map((p) => p.ruta)`)
+    assert.equal(solicitudes.some((ruta) => ruta.includes('/metricas?')), true)
+    assert.equal(solicitudes.some((ruta) => ruta.includes('/acciones?')), true)
+    await navegador.evaluar(`document.querySelector('.accion-marcador[aria-label^="2 acciones"]').focus()`)
+    await navegador.tecla('Enter')
+    await navegador.esperar(`document.querySelectorAll('.acciones-del-dia .accion-fila').length === 2`)
+    assert.match(await navegador.evaluar(`document.querySelector('.acciones-del-dia').innerText`), /Publicamos casos de éxito/)
+    await navegador.ajustarPantalla(1280, 1000)
+    await navegador.evaluar(`document.querySelector('.metricas-diario').scrollIntoView({ block: 'center' })`)
+    await navegador.capturar('f10-marcadores.png')
+    await navegador.ajustarPantalla(390, 844)
+    await navegador.evaluar(`document.querySelector('.metricas-diario').scrollIntoView({ block: 'start' })`)
+    await navegador.esperar(`document.documentElement.scrollWidth <= window.innerWidth`)
+    await navegador.capturar('f10-marcadores-movil.png')
+    await navegador.ajustarPantalla(1280, 1000)
+  })
+
+  await t.test('F10: editar borra opcionales y retira el marcador al cambiar de período; eliminar actualiza el grupo', async () => {
+    await cargarAcciones(`/clientes/${datos.clienteUuid}/metricas`)
+    await navegador.esperar(`document.querySelector('.metricas-filtros') !== null`)
+    await periodoAcciones('2026-11-01', '2026-11-03')
+    await navegador.esperar(`document.querySelector('.accion-marcador[aria-label^="2 acciones"]') !== null`)
+    await navegador.evaluar(`document.querySelector('.accion-marcador[aria-label^="2 acciones"]').click()`)
+    await navegador.evaluar(`document.querySelector('[aria-label="Editar acción: Publicamos casos de éxito"]').click()`)
+    await navegador.esperar(`document.querySelector('#accion-titulo') !== null`)
+    assert.equal(await navegador.evaluar(`document.querySelector('#accion-url').value`), datos.acciones[0].url)
+    await navegador.evaluar(cambiar('#accion-fecha', '2020-01-01'))
+    await navegador.evaluar(cambiar('#accion-descripcion', ''))
+    await navegador.evaluar(cambiar('#accion-url', ''))
+    await navegador.evaluar(`document.querySelector('.formulario-accion form').requestSubmit()`)
+    await navegador.esperar(`document.querySelector('.formulario-accion') === null && document.querySelector('.accion-marcador[aria-label^="1 acción: 3"]') !== null`)
+    const cuerpo = await navegador.evaluar(`window.__prueba.peticiones.filter((p) => p.metodo === 'PUT').at(-1).cuerpo`)
+    assert.deepEqual(cuerpo, { titulo: datos.acciones[0].titulo, fecha: '2020-01-01', descripcion: null, url: null })
+    await navegador.evaluar(`document.querySelector('[aria-label="Eliminar acción: Mejoramos preguntas frecuentes"]').click()`)
+    await navegador.esperar(`document.querySelector('#accion-eliminar-titulo') !== null`)
+    await navegador.evaluar(pulsar('Eliminar acción'))
+    await navegador.esperar(`document.querySelectorAll('.accion-marcador').length === 1 && document.querySelector('#accion-eliminar-titulo') === null`)
+    await navegador.evaluar(pulsar('Volver al cliente'))
+    await navegador.esperar(`document.querySelector('.detalle-accion-acciones') !== null`)
+    await navegador.evaluar(pulsar('Acciones realizadas'))
+    await navegador.esperar(`document.querySelectorAll('#acciones-cliente .accion-fila').length === 3`)
+    assert.match(await navegador.evaluar(`document.querySelector('#acciones-cliente').innerText`), /Publicamos casos de éxito/)
+  })
+
+  await t.test('F10: error de acciones conserva curvas, permite reintentar y no se presenta como vacío', async () => {
+    await cargarAcciones(`/clientes/${datos.clienteUuid}/metricas`, { errorAcciones: 404 })
+    await navegador.esperar(`document.querySelector('.acciones-error') !== null && document.querySelectorAll('.metricas-diario-linea').length === 2`)
+    assert.match(await navegador.evaluar(`document.querySelector('.acciones-error').innerText`), /Rechazo 404 del servidor/)
+    assert.doesNotMatch(await navegador.evaluar(`document.querySelector('.acciones-del-dia').innerText`), /No hay acciones/)
+    await navegador.evaluar(`window.__prueba.errorAcciones = 0`)
+    await navegador.evaluar(pulsar('Reintentar marcadores'))
+    await navegador.esperar(`document.querySelector('.acciones-error') === null`)
+    await periodoAcciones('2026-11-01', '2026-11-03')
+    await navegador.esperar(`document.querySelectorAll('.accion-marcador').length === 2`)
+    await cargar(navegador, `/clientes/${datos.clienteUuid}/metricas`)
+    await navegador.esperar(`document.querySelectorAll('.metricas-diario-linea').length === 2`)
+    assert.equal(await navegador.evaluar(`window.__prueba.peticiones.some((p) => p.ruta.includes('/acciones'))`), false)
+  })
+
+  await t.test('F10: respuestas fuera de orden no reemplazan el período ni el cliente actual', async () => {
+    await cargarAcciones(`/clientes/${datos.clienteUuid}/metricas`, {
+      demorasAcciones: { '2026-10-01': 1000 }, demorasMetricas: { '2026-10-01': 900 },
+    })
+    await navegador.esperar(`document.querySelector('.metricas-filtros') !== null`)
+    await periodoAcciones('2026-10-01', '2026-10-31')
+    await navegador.esperar(`window.__prueba.peticiones.some((p) => p.ruta.includes('/acciones?desde=2026-10-01'))`)
+    await periodoAcciones('2026-11-01', '2026-11-03')
+    await navegador.esperar(`document.querySelectorAll('.accion-marcador').length === 2`)
+    // Espera la respuesta vieja a través del mock para comprobar el estado final.
+    await navegador.evaluar(`new Promise((resolver) => setTimeout(resolver, 1100))`)
+    assert.equal(await navegador.evaluar(`document.querySelectorAll('.accion-marcador').length`), 2)
+    assert.match(await navegador.evaluar(`document.querySelector('.metricas-periodo').innerText`), /3 de nov/)
+    await navegador.evaluar(`window.__prueba.demorasAcciones['2026-11-01'] = 700`)
+    await periodoAcciones('2026-11-01', '2026-11-04')
+    await navegador.esperar(`window.__prueba.peticiones.some((p) => p.ruta.includes('/acciones?desde=2026-11-01&hasta=2026-11-04'))`)
+    const otroCliente = '99999999-9999-4999-8999-999999999999'
+    await navegador.evaluar(`window.__prueba.clienteUuid = '${otroCliente}';
+      window.__prueba.cliente = { ...window.__prueba.cliente, uuid: '${otroCliente}', nombre: 'Otro cliente' };
+      window.__prueba.acciones = window.__prueba.acciones.map((a) => ({ ...a, clienteUuid: '${otroCliente}', titulo: 'Otra marca: ' + a.titulo }));
+      window.__prueba.metricas.clienteUuid = '${otroCliente}'; window.__prueba.demorasAcciones = {};
+      location.hash = '/clientes/${otroCliente}/metricas'`)
+    await navegador.esperar(`document.querySelector('.metricas-cabecera h1')?.textContent.includes('Otro cliente') && document.querySelectorAll('.accion-marcador').length === 2`)
+    await navegador.evaluar(`new Promise((resolver) => setTimeout(resolver, 800))`)
+    await navegador.evaluar(`document.querySelector('.accion-marcador[aria-label^="2 acciones"]').click()`)
+    assert.match(await navegador.evaluar(`document.querySelector('.acciones-del-dia').innerText`), /Otra marca: Publicamos casos de éxito/)
+    assert.match(await navegador.evaluar(`document.querySelector('.metricas-cabecera h1').textContent`), /Otro cliente/)
   })
 
   await t.test('F03: competidores del período en último análisis y detalle del historial, sin consultas adicionales', async () => {

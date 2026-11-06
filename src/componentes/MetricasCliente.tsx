@@ -1,57 +1,13 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { ErrorApi, api } from '../api/clienteApi'
-import type {
-  DatosCliente,
-  DatosCuenta,
-  DatosMetricasCliente,
-  DatosMetricasGrupo,
-  DatosMetricasConsultaMencionada,
-} from '../api/tipos'
-import { obtenerMensajeError, tienePermiso } from '../utilidades'
-import { Aviso, Icono } from './Comun'
-import { GraficoEvolucionDiaria } from './GraficoEvolucionDiaria'
+import { useEffect, useState } from 'react'
+import { api } from '../api/clienteApi'
+import type { DatosCliente, DatosCuenta, DatosMetricasGrupo, DatosMetricasConsultaMencionada } from '../api/tipos'
+import { tienePermiso } from '../utilidades'
+import { Icono } from './Comun'
 import { InformeMetricas } from './InformeMetricas'
+import { PanelEvolucionCliente } from './PanelEvolucionCliente'
 import { gruposMetricas, tasaLegible } from '../metricas'
 
-type Periodo = { desde: string; hasta: string }
-type FiltroRapido = 'mes' | 'seisMeses' | 'anio'
-
 const enteros = new Intl.NumberFormat('es-AR')
-const fechas = new Intl.DateTimeFormat('es-AR', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-})
-const fechaArgentina = new Intl.DateTimeFormat('en-US', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  timeZone: 'America/Argentina/Buenos_Aires',
-})
-
-/** Los períodos incluyen el mes actual hasta hoy, según el calendario argentino. */
-function periodoRapido(filtro: FiltroRapido): Periodo {
-  const partes = fechaArgentina.formatToParts(new Date())
-  const valor = (tipo: string) => partes.find((parte) => parte.type === tipo)?.value ?? ''
-  const anio = Number(valor('year'))
-  const mes = Number(valor('month'))
-  const mesesAnteriores = filtro === 'seisMeses' ? 5 : filtro === 'anio' ? 11 : 0
-  const desde = new Date(Date.UTC(anio, mes - 1 - mesesAnteriores, 1)).toISOString().slice(0, 10)
-  return { desde, hasta: `${valor('year')}-${valor('month')}-${valor('day')}` }
-}
-
-function fechaLegible(iso: string): string {
-  const fecha = new Date(`${iso}T12:00:00Z`)
-  return Number.isNaN(fecha.getTime()) ? iso : fechas.format(fecha)
-}
-
-function mensajeErrorMetricas(causa: unknown): string {
-  if (causa instanceof ErrorApi && causa.estado === 404) {
-    return 'Este cliente no está disponible para consultar métricas.'
-  }
-  return obtenerMensajeError(causa)
-}
 
 function Indicador({
   etiqueta,
@@ -169,211 +125,48 @@ export function ResumenMetricasGrupo({ metricas, clave, etiqueta }: {
   )
 }
 
-export function MetricasCliente({
-  clienteUuid,
-  cuenta,
-  alVolver,
-}: {
+export function MetricasCliente({ clienteUuid, cuenta, alVolver }: {
   clienteUuid: string
   cuenta: DatosCuenta
   alVolver: () => void
 }) {
-  const [periodo, cambiarPeriodo] = useState<Periodo>(() => periodoRapido('mes'))
-  const [borrador, cambiarBorrador] = useState<Periodo>(periodo)
-  const [filtroActivo, cambiarFiltroActivo] = useState<FiltroRapido | null>('mes')
   const [cliente, cambiarCliente] = useState<DatosCliente | null>(null)
-  const [metricas, cambiarMetricas] = useState<DatosMetricasCliente | null>(null)
-  const [cargando, cambiarCargando] = useState(true)
-  const [error, cambiarError] = useState('')
-  const [errorFechas, cambiarErrorFechas] = useState('')
   const [informeAbierto, cambiarInformeAbierto] = useState(false)
   const puedeVerCliente = tienePermiso(cuenta.permisos, 'CLIENTES_VER')
-
   useEffect(() => {
-    const tituloAnterior = document.title
+    const anterior = document.title
     document.title = 'Métricas GEO · Gelaia'
-    return () => {
-      document.title = tituloAnterior
-    }
+    return () => { document.title = anterior }
   }, [])
-
   useEffect(() => {
     if (!puedeVerCliente) return
     let vigente = true
-    api.clientes
-      .obtener(clienteUuid)
-      .then((datos) => {
-        if (vigente) cambiarCliente(datos)
-      })
-      .catch(() => {
-        if (vigente) cambiarCliente(null)
-      })
-    return () => {
-      vigente = false
-    }
+    api.clientes.obtener(clienteUuid).then((datos) => { if (vigente) cambiarCliente(datos) })
+      .catch(() => { if (vigente) cambiarCliente(null) })
+    return () => { vigente = false }
   }, [clienteUuid, puedeVerCliente])
-
-  useEffect(() => {
-    let vigente = true
-    api.metricas
-      .obtener(clienteUuid, periodo.desde, periodo.hasta)
-      .then((datos) => {
-        if (!vigente) return
-        cambiarMetricas(datos)
-        cambiarError('')
-      })
-      .catch((causa) => {
-        if (!vigente) return
-        cambiarMetricas(null)
-        cambiarError(mensajeErrorMetricas(causa))
-      })
-      .finally(() => {
-        if (vigente) cambiarCargando(false)
-      })
-    return () => {
-      vigente = false
-    }
-  }, [clienteUuid, periodo])
-
-  function cargarPeriodo(siguiente: Periodo, filtro: FiltroRapido | null) {
-    cambiarErrorFechas('')
-    cambiarError('')
-    cambiarMetricas(null)
-    cambiarCargando(true)
-    cambiarBorrador(siguiente)
-    cambiarFiltroActivo(filtro)
-    cambiarPeriodo(siguiente)
-  }
-
-  function aplicarPeriodo(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault()
-    if (
-      !/^\d{4}-\d{2}-\d{2}$/.test(borrador.desde) ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(borrador.hasta)
-    ) {
-      cambiarErrorFechas('Ingresá ambas fechas en formato válido.')
-      return
-    }
-    if (borrador.desde > borrador.hasta) {
-      cambiarErrorFechas('La fecha desde no puede ser posterior a la fecha hasta.')
-      return
-    }
-    cargarPeriodo({ desde: borrador.desde, hasta: borrador.hasta }, null)
-  }
-
-  function reintentar() {
-    cambiarError('')
-    cambiarCargando(true)
-    cambiarPeriodo({ ...periodo })
-  }
-
-  return (
-    <div className="pagina-metricas">
-      {puedeVerCliente && (
-        <button className="enlace-volver" type="button" onClick={alVolver}>
-          <Icono nombre="volver" tamano={17} /> Volver al cliente
-        </button>
-      )}
-      <header className="metricas-cabecera">
-        <span className="sobrelinea">MEDICIÓN POR CLIENTE</span>
-        <h1>Métricas GEO{cliente ? ` de ${cliente.nombre}` : ''}</h1>
-        <p>Resultados agregados por día de ejecución en Argentina.</p>
-      </header>
-
-      <form className="metricas-filtros" onSubmit={aplicarPeriodo}>
-        <div className="metricas-filtros-rapidos" role="group" aria-label="Períodos rápidos">
-          {([
-            ['mes', 'Este mes'],
-            ['seisMeses', 'Últimos 6 meses'],
-            ['anio', 'Último año'],
-          ] as const).map(([filtro, etiqueta]) => (
-            <button
-              key={filtro}
-              className="boton boton-chico metricas-filtro-rapido"
-              type="button"
-              aria-pressed={filtroActivo === filtro}
-              onClick={() => cargarPeriodo(periodoRapido(filtro), filtro)}
-            >
-              {etiqueta}
-            </button>
-          ))}
-        </div>
-        <div>
-          <label htmlFor="metricas-desde">Desde</label>
-          <input
-            id="metricas-desde"
-            type="date"
-            required
-            value={borrador.desde}
-            onChange={(evento) => {
-              cambiarBorrador((actual) => ({ ...actual, desde: evento.target.value }))
-              cambiarFiltroActivo(null)
-            }}
-          />
-        </div>
-        <div>
-          <label htmlFor="metricas-hasta">Hasta</label>
-          <input
-            id="metricas-hasta"
-            type="date"
-            required
-            value={borrador.hasta}
-            onChange={(evento) => {
-              cambiarBorrador((actual) => ({ ...actual, hasta: evento.target.value }))
-              cambiarFiltroActivo(null)
-            }}
-          />
-        </div>
-        <button className="boton boton-primario" type="submit" disabled={cargando}>
-          Aplicar período
-        </button>
-        {errorFechas && <Aviso>{errorFechas}</Aviso>}
-      </form>
-
-      {cargando ? (
-        <div className="cargando-bloque" role="status">
-          Cargando métricas GEO…
-        </div>
-      ) : error ? (
-        <div className="metricas-error">
-          <Aviso>{error}</Aviso>
-          <button className="boton boton-secundario reintentar" type="button" onClick={reintentar}>
-            Reintentar
-          </button>
-        </div>
-      ) : metricas && (
-        <div className="metricas-contenido">
-          <div className="metricas-periodo-acciones">
-            <p className="metricas-periodo">
-              Del {fechaLegible(metricas.desde)} al {fechaLegible(metricas.hasta)}, inclusive.
-            </p>
-            <button className="boton boton-secundario boton-chico detalle-accion metricas-informe-accion" type="button"
-              aria-expanded={informeAbierto} aria-controls="metricas-informe-editor"
-              onClick={() => cambiarInformeAbierto((abierto) => !abierto)}>
-              <Icono nombre="documento" tamano={18} />
-              <span>{informeAbierto ? 'Cerrar informe' : 'Crear informe'}</span>
-            </button>
-          </div>
-
-          {informeAbierto && (
-            <InformeMetricas key={`${cuenta.usuario}:${clienteUuid}`} metricas={metricas}
-              cliente={cliente} cuenta={cuenta} alCerrar={() => cambiarInformeAbierto(false)} />
-          )}
-
-          {gruposMetricas.map((grupo) => (
-            <ResumenMetricasGrupo key={grupo.clave} clave={grupo.clave}
-              etiqueta={`${grupo.etiqueta} · ${grupo.descripcion}`} metricas={metricas[grupo.clave]} />
-          ))}
-          <section className="metricas-seccion" aria-labelledby="metricas-serie-titulo">
-            <h2 id="metricas-serie-titulo">Evolución diaria</h2>
-            {metricas.sinMarca.serieDiaria.length === 0 && metricas.conMarca.serieDiaria.length === 0 ? (
-              <p className="metricas-vacio">No hubo ejecuciones en este período.</p>
-            ) : (
-              <GraficoEvolucionDiaria key={`${metricas.clienteUuid}:${metricas.desde}:${metricas.hasta}`} metricas={metricas} />
-            )}
-          </section>
-        </div>
-      )}
-    </div>
-  )
+  return <div className="pagina-metricas">
+    {puedeVerCliente && <button className="enlace-volver" type="button" onClick={alVolver}>
+      <Icono nombre="volver" tamano={17} /> Volver al cliente
+    </button>}
+    <header className="metricas-cabecera">
+      <span className="sobrelinea">MEDICIÓN POR CLIENTE</span>
+      <h1>Métricas GEO{cliente ? ` de ${cliente.nombre}` : ''}</h1>
+      <p>Seguí la presencia de tu marca y explorá sus resultados.</p>
+    </header>
+    <PanelEvolucionCliente clienteUuid={clienteUuid} cliente={cliente} cuenta={cuenta} accionesCabecera={
+      <button className="boton boton-secundario boton-chico metricas-informe-accion" type="button"
+        aria-expanded={informeAbierto} aria-controls="metricas-informe-editor"
+        onClick={() => cambiarInformeAbierto((abierto) => !abierto)}>
+        <Icono nombre="documento" tamano={16} /> {informeAbierto ? 'Cerrar informe' : 'Crear informe'}
+      </button>
+    }>
+      {(metricas) => <div className="metricas-contenido">
+        {informeAbierto && <InformeMetricas key={`${cuenta.usuario}:${clienteUuid}`} metricas={metricas}
+          cliente={cliente} cuenta={cuenta} alCerrar={() => cambiarInformeAbierto(false)} />}
+        {gruposMetricas.map((grupo) => <ResumenMetricasGrupo key={grupo.clave} clave={grupo.clave}
+          etiqueta={`${grupo.etiqueta} · ${grupo.descripcion}`} metricas={metricas[grupo.clave]} />)}
+      </div>}
+    </PanelEvolucionCliente>
+  </div>
 }

@@ -713,6 +713,76 @@ Los informes anteriores siguen devolviendo este contenido de `informe`, sin agre
 
 `informe` es `null` mientras el trabajo no termine o si falla. Sus UUID de `ejecuciones` pertenecen a la muestra usada para el análisis. Los últimos siete días son los días calendario de Argentina hasta el día del inicio, inclusive. Se aceptan datos parciales, pero sin ejecuciones finalizadas y normalizadas el POST devuelve `409` con `detail`. Otro POST durante un trabajo abierto devuelve el mismo proceso; tras un fallo reintenta con el mismo UUID y la misma muestra. Después de finalizar correctamente, el plan Básico exige siete días completos antes de otro POST; hasta entonces devuelve `409`. Sin clave de OpenAI devuelve `503`. La generación automática del informe todavía no está habilitada.
 
+## F10: acciones realizadas por cliente
+
+Contrato incorporado el 6 de noviembre de 2026. Requiere el backend con la migración V29.
+La base es `/api/clientes-monitoreados/{clienteUuid}/acciones`; todas las rutas requieren la autenticación habitual.
+
+| Método y ruta relativa a la base | Resultado | Permiso |
+| --- | --- | --- |
+| `POST /` | `201 DatosAccionCliente` | `ACCIONES_CREAR` |
+| `GET /` | `200 DatosAccionCliente[]` | `ACCIONES_VER` |
+| `GET /{accionUuid}` | `200 DatosAccionCliente` | `ACCIONES_VER` |
+| `PUT /{accionUuid}` | `200 DatosAccionCliente` | `ACCIONES_EDITAR` |
+| `DELETE /{accionUuid}` | `204`, sin cuerpo | `ACCIONES_ELIMINAR` |
+
+El listado devuelve acciones vigentes sin paginación, ordenadas por fecha descendente y, ante empates,
+por identificador interno descendente. Conservar ese orden; sin resultados devuelve `[]`.
+Admite `?desde=2026-11-01&hasta=2026-11-30`: ambos parámetros deben enviarse juntos,
+con extremos inclusivos y `desde <= hasta`. Sin filtros devuelve todas las acciones vigentes.
+
+Alta y edición reciben únicamente:
+
+```json
+{
+  "titulo": "Publicamos la página de marketing industrial",
+  "fecha": "2026-11-06",
+  "descripcion": "Agregamos servicios, casos de éxito y preguntas frecuentes.",
+  "url": "https://cliente.example/marketing-industrial"
+}
+```
+
+`titulo` es obligatorio, no vacío y de hasta 200 caracteres. `fecha` es obligatoria,
+en formato `YYYY-MM-DD`, hoy o anterior según `America/Argentina/Buenos_Aires`.
+Puede preceder al alta del cliente o al inicio del monitoreo. Se permiten títulos repetidos
+y varias acciones en un día. `descripcion` es opcional, de hasta 2000 caracteres;
+`url` es opcional, de hasta 2048 caracteres y debe ser una URL completa HTTP(S).
+El backend elimina espacios exteriores y convierte opcionales vacíos en `null`.
+`PUT` reemplaza los cuatro campos: enviar siempre título y fecha, y el valor vigente
+o `null` para cada opcional. No enviar identidad, organización ni cliente en el cuerpo.
+
+Alta, detalle y edición devuelven exactamente los cuatro campos anteriores más `uuid`
+y `clienteUuid`; los opcionales pueden ser `null`. Usar los valores normalizados del servidor.
+La eliminación es lógica; una segunda eliminación devuelve `404`.
+
+Consultar permisos en `GET /api/autenticacion/actual`, sin deducirlos del rol.
+Las cuentas `PLATAFORMA`, incluido SYSADMIN, tienen solo lectura incluso con permisos de escritura.
+En clientes `ARCHIVADO`, conservar lectura y bloquear altas, ediciones y bajas;
+la reactivación restituye las operaciones autorizadas. El backend vuelve a comprobar todas estas reglas.
+
+La gestión incluye todas las acciones, independientemente del período visible del gráfico.
+La interfaz ofrece una pantalla propia de acciones, accesible desde la ficha del cliente;
+comparte Evolución diaria con Métricas GEO, donde el gráfico precede a los resúmenes del período.
+En Métricas GEO, solicitar métricas y acciones del mismo cliente y período en paralelo,
+con resultados y errores independientes. Los marcadores son generales del cliente;
+no se asignan a temas, consultas ni grupos con/sin marca. Superponerlos sin agregar
+mediciones ni modificar tasas o series. Mostrar acciones aun sin mediciones ese día,
+agrupar las del mismo día y ofrecer acceso por clic y teclado.
+La coincidencia temporal no demuestra causalidad. Tras una escritura, releer el listado
+correspondiente; los cambios de fecha deben retirar o mover el marcador según el rango.
+Descartar respuestas antiguas al cambiar de cliente o período. Un fallo de acciones no
+debe ocultar las métricas ni presentarse como ausencia de acciones.
+
+Tratar `fecha` como día calendario, conservar `YYYY-MM-DD` al enviar/filtrar y evitar
+desplazamientos por zona horaria. Abrir enlaces seguros en otra pestaña con
+`rel="noopener noreferrer"`. Conservar formularios ante errores y bloquear envíos duplicados.
+
+Errores: `400` por datos/filtros inválidos o fecha futura; `401` usa la renovación existente;
+`403` indica falta de autorización; `404`, cliente o acción inexistente, eliminada o ajena;
+`409`, escritura sobre un cliente archivado. Los errores de negocio/validación incluyen
+`application/problem+json` con `detail`; mostrarlo cuando exista y usar el estado HTTP como base.
+Si las rutas no están desplegadas, informar el problema sin reemplazar la API por almacenamiento local.
+
 ## Errores y estados para la interfaz
 
 | Estado | Tratamiento recomendado |

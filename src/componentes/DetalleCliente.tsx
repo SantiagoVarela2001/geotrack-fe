@@ -25,6 +25,7 @@ import { Aviso, EtiquetaEstado, Icono, Vacio } from './Comun'
 import { ConfirmarEstadoCliente } from './ConfirmarEstadoCliente'
 import { CorregirMarcaConsulta } from './CorregirMarcaConsulta'
 import { GestionCompetidores } from './GestionCompetidores'
+import { permisosAcciones } from '../accionesCliente'
 import { ConfirmarTipoConsulta } from './ConfirmarTipoConsulta'
 import { EditarConsulta } from './EditarConsulta'
 import { FilaConsulta } from './FilaConsulta'
@@ -47,6 +48,7 @@ export function DetalleCliente({
   temaInicialUuid = '',
   alAbrirEjecucion,
   alVerMetricas,
+  alVerAcciones,
   alVerAnalisis,
   alCrearAnalisis,
   alVolver,
@@ -61,6 +63,7 @@ export function DetalleCliente({
     ejecucionUuid?: string,
   ) => void
   alVerMetricas: () => void
+  alVerAcciones: () => void
   alVerAnalisis: () => void
   alCrearAnalisis: () => void
   alVolver: () => void
@@ -122,6 +125,8 @@ export function DetalleCliente({
   const [revisionInicial, cambiarRevisionInicial] = useState(0)
   const [revisionTemas, cambiarRevisionTemas] = useState(0)
   const [revisionConsultas, cambiarRevisionConsultas] = useState(0)
+  const permisosGestionAcciones = permisosAcciones(cuenta, cliente)
+  const puedeAccederAcciones = permisosGestionAcciones.ver || permisosGestionAcciones.crear
 
   const puedeVerTemas = tienePermiso(cuenta.permisos, 'TEMAS_VER')
   const puedeVerConsultas = tienePermiso(cuenta.permisos, 'CONSULTAS_VER')
@@ -948,7 +953,7 @@ export function DetalleCliente({
                   <p>Configuración de marca y consultas de seguimiento.</p>
                 </div>
               </div>
-              {(puedeCambiarEstadoCliente || (puedeVerConsultas && cliente.estado === 'ACTIVO')) && (
+              {(puedeAccederAcciones || puedeCambiarEstadoCliente || (puedeVerConsultas && cliente.estado === 'ACTIVO')) && (
                 <div className="detalle-acciones">
                   {puedeVerConsultas && cliente.estado === 'ACTIVO' && (
                     <button
@@ -958,6 +963,12 @@ export function DetalleCliente({
                     >
                       <Icono nombre="grafico" tamano={18} />
                       <span>Ver métricas GEO</span>
+                    </button>
+                  )}
+                  {puedeAccederAcciones && (
+                    <button className="boton boton-secundario boton-chico detalle-accion detalle-accion-acciones" type="button"
+                      onClick={alVerAcciones}>
+                      <Icono nombre="acciones" tamano={18} /><span>Acciones realizadas</span>
                     </button>
                   )}
                   {puedeCambiarEstadoCliente && (

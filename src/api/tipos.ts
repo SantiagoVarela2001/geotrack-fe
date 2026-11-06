@@ -11,6 +11,10 @@ export type Permiso =
   | 'CLIENTES_CREAR'
   | 'CLIENTES_VER'
   | 'CLIENTES_CAMBIAR_ESTADO'
+  | 'ACCIONES_VER'
+  | 'ACCIONES_CREAR'
+  | 'ACCIONES_EDITAR'
+  | 'ACCIONES_ELIMINAR'
   | 'COMPETIDORES_CREAR'
   | 'COMPETIDORES_ELIMINAR'
   | 'TEMAS_CREAR'
@@ -98,6 +102,18 @@ export interface DatosConsulta {
   estadoConsulta: 'BORRADOR' | 'APROBADA'
   prioridad: 'ALTA' | 'MEDIA' | 'BAJA'
   conMarca: boolean
+}
+
+export interface SolicitudAccionCliente {
+  titulo: string
+  fecha: string
+  descripcion: string | null
+  url: string | null
+}
+
+export interface DatosAccionCliente extends SolicitudAccionCliente {
+  uuid: string
+  clienteUuid: string
 }
 
 export interface DatosEjecucionHoy {

@@ -1,4 +1,6 @@
 import type {
+  DatosAccionCliente,
+  SolicitudAccionCliente,
   DatosAnalisisSemanal,
   DatosCliente,
   DatosConsulta,
@@ -250,6 +252,30 @@ export const api = {
         `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/competidores/${encodeURIComponent(competidorUuid)}`,
         { method: 'DELETE' },
       ),
+  },
+  acciones: {
+    listar: (clienteUuid: string, periodo?: { desde: string; hasta: string }) => {
+      const filtros = periodo
+        ? `?desde=${encodeURIComponent(periodo.desde)}&hasta=${encodeURIComponent(periodo.hasta)}` : ''
+      return solicitar<DatosAccionCliente[]>(
+        `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/acciones${filtros}`,
+      )
+    },
+    obtener: (clienteUuid: string, accionUuid: string) => solicitar<DatosAccionCliente>(
+      `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/acciones/${encodeURIComponent(accionUuid)}`,
+    ),
+    crear: (clienteUuid: string, datos: SolicitudAccionCliente) => solicitar<DatosAccionCliente>(
+      `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/acciones`,
+      { method: 'POST', body: JSON.stringify(datos) },
+    ),
+    editar: (clienteUuid: string, accionUuid: string, datos: SolicitudAccionCliente) => solicitar<DatosAccionCliente>(
+      `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/acciones/${encodeURIComponent(accionUuid)}`,
+      { method: 'PUT', body: JSON.stringify(datos) },
+    ),
+    eliminar: (clienteUuid: string, accionUuid: string) => solicitar<void>(
+      `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/acciones/${encodeURIComponent(accionUuid)}`,
+      { method: 'DELETE' },
+    ),
   },
   metricas: {
     obtener: (clienteUuid: string, desde: string, hasta: string) =>

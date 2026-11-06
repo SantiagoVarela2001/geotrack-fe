@@ -93,6 +93,12 @@ export async function abrirNavegador(ejecutable) {
         const { data } = await pagina('Page.captureScreenshot', { format: 'png' })
         await writeFile(join(raizTemporal, nombre), Buffer.from(data, 'base64'))
       },
+      async tecla(tecla) {
+        const codigo = tecla === 'Enter' ? 13 : tecla === 'Tab' ? 9 : 32
+        await pagina('Input.dispatchKeyEvent', { type: 'keyDown', key: tecla, code: tecla, windowsVirtualKeyCode: codigo,
+          text: tecla === 'Enter' ? '\r' : '', unmodifiedText: tecla === 'Enter' ? '\r' : '' })
+        await pagina('Input.dispatchKeyEvent', { type: 'keyUp', key: tecla, code: tecla, windowsVirtualKeyCode: codigo })
+      },
       async preparar(codigo, ruta) {
         if (scriptAnterior) await pagina('Page.removeScriptToEvaluateOnNewDocument', { identifier: scriptAnterior })
         const marcador = String(Date.now()) + Math.random()

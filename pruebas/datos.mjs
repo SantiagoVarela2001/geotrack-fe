@@ -15,6 +15,18 @@ export const cliente = {
   sitioWeb: 'https://finmi.example', descripcion: null, rubro: 'Agencia', pais: 'AR', idioma: 'es-AR',
   estado: 'ACTIVO', competidores: [],
 }
+export const cuentaAcciones = { ...cuenta, permisos: [...cuenta.permisos,
+  'ACCIONES_VER', 'ACCIONES_CREAR', 'ACCIONES_EDITAR', 'ACCIONES_ELIMINAR'] }
+export const acciones = [
+  { uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', clienteUuid, titulo: 'Publicamos casos de éxito',
+    fecha: '2026-11-03', descripcion: 'Nuevos ejemplos de nuestro trabajo.', url: 'https://finmi.example/casos' },
+  { uuid: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', clienteUuid, titulo: 'Mejoramos preguntas frecuentes',
+    fecha: '2026-11-03', descripcion: null, url: null },
+  { uuid: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', clienteUuid, titulo: 'Actualizamos servicios',
+    fecha: '2026-11-02', descripcion: null, url: null },
+  { uuid: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', clienteUuid, titulo: 'Primera publicación',
+    fecha: '2020-10-01', descripcion: null, url: null },
+]
 export const consulta = {
   uuid: consultaUuid, clienteUuid, temaUuid, texto: 'Pregunta histórica', tipoConsulta: 'REFERENCIA',
   estadoConsulta: 'BORRADOR', prioridad: 'MEDIA', conMarca: false,

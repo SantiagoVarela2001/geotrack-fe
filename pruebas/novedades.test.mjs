@@ -6,16 +6,17 @@ import { cuenta } from './datos.mjs'
 const publicacion = Date.parse('2026-11-04T00:00:00-03:00')
 const expiracion = Date.parse('2026-11-11T00:00:00-03:00')
 const lectora = { ...cuenta, permisos: ['CONSULTAS_VER'] }
-const editora = { ...cuenta, permisos: ['CONSULTAS_VER', 'CONSULTAS_EDITAR', 'ANALISIS_SEMANALES_VER'] }
+const editora = { ...cuenta, permisos: ['CONSULTAS_VER', 'CONSULTAS_EDITAR', 'ANALISIS_SEMANALES_VER', 'ACCIONES_VER'] }
 
 test('cada novedad está vigente una semana desde su publicación', () => {
   const nuevaPublicacion = Date.parse('2026-11-06T00:00:00-03:00')
   const nuevaExpiracion = Date.parse('2026-11-13T00:00:00-03:00')
   assert.equal(obtenerNovedadesVigentes(editora, publicacion - 1).length, 0)
   assert.equal(obtenerNovedadesVigentes(editora, publicacion).length, 5)
-  assert.equal(obtenerNovedadesVigentes(editora, nuevaPublicacion).length, 6)
-  assert.equal(obtenerNovedadesVigentes(editora, expiracion - 1).length, 6)
-  assert.deepEqual(obtenerNovedadesVigentes(editora, expiracion).map((n) => n.id), ['contexto-agente-analisis-semanal'])
+  assert.equal(obtenerNovedadesVigentes(editora, nuevaPublicacion).length, 7)
+  assert.equal(obtenerNovedadesVigentes(editora, expiracion - 1).length, 7)
+  assert.deepEqual(obtenerNovedadesVigentes(editora, expiracion).map((n) => n.id),
+    ['acciones-realizadas-evolucion-marca', 'contexto-agente-analisis-semanal'])
   assert.equal(obtenerNovedadesVigentes(editora, nuevaExpiracion).length, 0)
   for (const novedad of novedades) {
     assert.equal(Date.parse(novedad.expiraEn) - Date.parse(novedad.publicadaEn), 7 * 24 * 60 * 60 * 1000)
@@ -37,10 +38,16 @@ test('las novedades respetan los permisos y el tipo de cuenta', () => {
   assert.equal(obtenerNovedadesVigentes({ ...cuenta, permisos: ['ANALISIS_SEMANALES_VER'] }, hoy)[0].id,
     'contexto-agente-analisis-semanal')
   assert.equal(obtenerNovedadesVigentes(lectora, hoy).some((n) => n.id === 'contexto-agente-analisis-semanal'), false)
+  for (const permiso of ['ACCIONES_VER', 'ACCIONES_CREAR']) {
+    assert.deepEqual(obtenerNovedadesVigentes({ ...cuenta, permisos: [permiso] }, hoy).map((n) => n.id),
+      ['acciones-realizadas-evolucion-marca'])
+  }
+  assert.equal(obtenerNovedadesVigentes(lectora, hoy).some((n) => n.id === 'acciones-realizadas-evolucion-marca'), false)
 })
 
 test('el catálogo agrega la mejora del agente semanal y conserva las novedades anteriores', () => {
   assert.deepEqual(novedades.map((n) => n.id), [
+    'acciones-realizadas-evolucion-marca',
     'contexto-agente-analisis-semanal',
     'reconocimiento-competidores-dominios-citas',
     'competidores-detectados-informe-semanal',

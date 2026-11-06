@@ -13,6 +13,15 @@ export interface Novedad {
 // Cada novedad permanece vigente una semana, con horario de Argentina.
 export const novedades: Novedad[] = [
   {
+    id: 'acciones-realizadas-evolucion-marca',
+    titulo: 'Tus acciones, junto a la evolución de tu marca',
+    descripcion:
+      'Cada avance cuenta. Llegó un espacio para registrar publicaciones, mejoras en tu sitio y otras acciones de tu marca. Consultá el historial y encontrá cada acción marcada en el gráfico de evolución: una forma más clara de revisar qué hiciste y cómo cambió tu presencia en IA a lo largo del tiempo.',
+    publicadaEn: '2026-11-06T00:00:00-03:00',
+    expiraEn: '2026-11-13T00:00:00-03:00',
+    permisos: ['ACCIONES_VER', 'ACCIONES_CREAR'],
+  },
+  {
     id: 'contexto-agente-analisis-semanal',
     titulo: 'Tu agente semanal, más enfocado en lo que importa',
     descripcion:

@@ -13,13 +13,16 @@ import { MetricasCliente } from './componentes/MetricasCliente'
 import { MiPerfil } from './componentes/MiPerfil'
 import { Novedades } from './componentes/Novedades'
 import { PaginaAnalisisSemanales } from './componentes/PaginaAnalisisSemanales'
+import { PaginaAccionesCliente } from './componentes/PaginaAccionesCliente'
 import { obtenerMensajeError, tienePermiso } from './utilidades'
+import { permisosAcciones } from './accionesCliente'
 import './App.css'
 
 type Ruta =
   | { tipo: 'clientes' }
   | { tipo: 'cliente'; uuid: string; temaUuid?: string }
   | { tipo: 'metricas'; clienteUuid: string }
+  | { tipo: 'acciones'; clienteUuid: string }
   | { tipo: 'analisis'; clienteUuid: string; confirmarAlAbrir: boolean }
   | {
       tipo: 'ejecucion'
@@ -58,6 +61,8 @@ function leerRuta(): Ruta {
   }
   const metricas = /^\/clientes\/([0-9a-f-]+)\/metricas$/i.exec(ruta)
   if (metricas) return { tipo: 'metricas', clienteUuid: metricas[1] }
+  const acciones = /^\/clientes\/([0-9a-f-]+)\/acciones$/i.exec(ruta)
+  if (acciones) return { tipo: 'acciones', clienteUuid: acciones[1] }
   const analisis = /^\/clientes\/([0-9a-f-]+)\/analisis-semanales(\/nuevo)?$/i.exec(ruta)
   if (analisis) {
     return { tipo: 'analisis', clienteUuid: analisis[1], confirmarAlAbrir: Boolean(analisis[2]) }
@@ -254,7 +259,9 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
             />
           ) : (
             <div className="clientes-tabla" role="list">
-              {filtrados.map((cliente) => (
+              {filtrados.map((cliente) => {
+                const permisos = permisosAcciones(cuenta, cliente)
+                return (
                 <div className="cliente-fila" role="listitem" key={cliente.uuid}>
                   <div className="cliente-datos">
                     <span className="cliente-avatar">
@@ -326,9 +333,18 @@ function ListadoClientes({ cuenta }: { cuenta: DatosCuenta }) {
                         </button>
                       </span>
                     )}
+                    {(permisos.ver || permisos.crear) && (
+                      <button className="cliente-accion cliente-accion-acciones" type="button"
+                        disabled={cambiandoEstadoUuid !== null}
+                        onClick={() => navegar(`/clientes/${cliente.uuid}/acciones`)}
+                        title="Acciones realizadas" aria-label={`Ver acciones realizadas de ${cliente.nombre}`}>
+                        <Icono nombre="acciones" tamano={19} />
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </>
@@ -458,6 +474,7 @@ function App() {
     clientes: 'Clientes',
     cliente: 'Detalle del cliente',
     metricas: 'Métricas GEO',
+    acciones: 'Acciones realizadas',
     analisis: 'Análisis semanal',
     ejecucion: 'Ejecución de consulta',
     administracion: 'Administración',
@@ -578,6 +595,12 @@ function App() {
             ) : (
               <Aviso tipo="informacion">Tu cuenta no tiene permiso para ver análisis semanales.</Aviso>
             )
+          ) : ruta.tipo === 'acciones' ? (
+            tienePermiso(cuenta.permisos, 'ACCIONES_VER') ||
+            (cuenta.tipoCuenta === 'ORGANIZACION' && tienePermiso(cuenta.permisos, 'ACCIONES_CREAR')) ? (
+              <PaginaAccionesCliente key={ruta.clienteUuid} clienteUuid={ruta.clienteUuid} cuenta={cuenta}
+                alVolver={() => navegar(`/clientes/${ruta.clienteUuid}`)} />
+            ) : <Aviso tipo="informacion">Tu cuenta no tiene permiso para acceder a acciones.</Aviso>
           ) : ruta.tipo === 'metricas' ? (
             tienePermiso(cuenta.permisos, 'CONSULTAS_VER') ? (
               <MetricasCliente
@@ -600,6 +623,7 @@ function App() {
                   abrirEjecucion(ruta.uuid, temaUuid, consulta, iniciar, ejecucionUuid)
                 }
                 alVerMetricas={() => navegar(`/clientes/${ruta.uuid}/metricas`)}
+                alVerAcciones={() => navegar(`/clientes/${ruta.uuid}/acciones`)}
                 alVerAnalisis={() => navegar(`/clientes/${ruta.uuid}/analisis-semanales`)}
                 alCrearAnalisis={() => navegar(`/clientes/${ruta.uuid}/analisis-semanales/nuevo`)}
                 alVolver={() => navegar('/clientes')}

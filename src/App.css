@@ -365,27 +365,11 @@
   font-size: 15px;
   line-height: 1.65;
 }
-.ingreso-pasos {
-  margin-top: 48px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  color: #d2e1ec;
-  font-size: 12px;
-}
-.ingreso-pasos span {
-  white-space: nowrap;
-}
-.ingreso-pasos b {
-  margin-right: 5px;
-  color: #55d8ed;
-  font-size: 11px;
-}
-.ingreso-pasos i {
-  height: 1px;
-  width: 34px;
-  background: #4b637a;
-}
+.ingreso-funciones { display: grid; gap: 20px; padding: 0; margin: 30px 0 0; list-style: none; }
+.ingreso-funciones li { display: flex; align-items: flex-start; gap: 14px; }
+.ingreso-funciones b { padding-top: 2px; color: #55d8ed; font-size: 11px; font-weight: 600; }
+.ingreso-funciones strong { color: #e3edf5; font-size: 13px; font-weight: 600; }
+.ingreso-funciones p { margin-top: 5px; color: #9eb3c5; font-size: 12px; line-height: 1.5; }
 .ingreso-pie {
   color: #8195a8;
   font-size: 10px;
@@ -932,6 +916,16 @@
 .detalle-accion-metricas {
   color: #62539a;
 }
+.cliente-accion-acciones,
+.detalle-accion-acciones {
+  color: #287787;
+}
+.cliente-accion-acciones:not(:disabled):hover,
+.detalle-accion-acciones:not(:disabled):hover {
+  border-color: #aed4dc;
+  background: #edf8fa;
+  color: #1b6272;
+}
 .cliente-accion-contenedor {
   display: inline-flex;
 }
@@ -1086,6 +1080,10 @@
 .detalle-accion-metricas {
   border-color: #ddd4f2;
   background: #f8f6fd;
+}
+.detalle-accion-acciones {
+  border-color: #cce3e8;
+  background: #f4fafb;
 }
 .detalle-accion-archivar {
   border-color: #eadcc8;
@@ -3966,10 +3964,11 @@
     font-size: 35px;
   }
   .ingreso-relato p,
-  .ingreso-pasos,
   .ingreso-pie {
     display: none;
   }
+  .ingreso-funciones { gap: 12px; margin-top: 20px; }
+  .ingreso-funciones strong { font-size: 12px; }
   .ingreso-panel {
     min-height: 490px;
     padding: 35px 22px;
@@ -4257,6 +4256,125 @@
 .metricas-grupo .metricas-seccion { margin-top: 18px; }
 .metricas-leyenda { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0; font-size: 12px; font-weight: 700; }
 .metricas-diario-detalle > section + section { border-top: 1px solid #dce8eb; margin-top: 20px; padding-top: 16px; }
+.gestion-acciones { margin: 20px 0; padding: 24px; }
+.gestion-acciones > p { color: #60798b; font-size: 13px; line-height: 1.6; }
+.acciones-lista { padding: 0; margin: 16px 0 0; list-style: none; }
+.accion-fila { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 18px 0; border-top: 1px solid #dce8eb; }
+.accion-fila > div { min-width: 0; }
+.accion-fila time { color: #667e90; font-size: 11px; }
+.accion-fila h4 { margin: 6px 0; color: #193b50; font-size: 14px; overflow-wrap: anywhere; }
+.accion-fila p { margin: 6px 0; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.accion-descripcion { white-space: pre-wrap; }
+.accion-fila a { font-size: 12px; }
+.accion-botones { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.formulario-accion { width: min(580px, calc(100vw - 32px)); }
+.formulario-accion fieldset { display: grid; gap: 8px; padding: 0; margin: 20px 0; border: 0; min-width: 0; }
+.formulario-accion label { margin-top: 9px; font-size: 13px; font-weight: 600; }
+.formulario-accion label span, .formulario-accion small { color: #667e90; font-size: 12px; font-weight: 400; }
+.formulario-accion input, .formulario-accion textarea { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #cbdbe4; border-radius: 7px; font: inherit; }
+.formulario-accion textarea { resize: vertical; }
+.metricas-diario-lienzo { position: relative; }
+.metricas-diario-desplazamiento { padding-top: 6px; }
+.acciones-selector-periodo { margin: 12px 0; color: #60798b; font-size: 12px; }
+.acciones-selector-periodo summary { cursor: pointer; }
+.acciones-selector-periodo > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.acciones-selector-periodo button[aria-pressed='true'] { border-color: #ad6514; background: #fff6e9; }
+.acciones-marcadores { position: absolute; inset: 0; pointer-events: none; }
+.accion-marcador { position: absolute; top: 0; transform: translateX(-50%); width: 28px; height: 28px; padding: 0; border: 2px solid #fff; border-radius: 7px; background: #ad6514; color: white; font-size: 12px; font-weight: 700; cursor: pointer; pointer-events: auto; }
+.accion-marcador[aria-pressed='true'] { background: #77430b; }
+.accion-marcador:focus-visible { outline: 3px solid #159cac; outline-offset: 3px; }
+.accion-marcador-linea { stroke: #ad6514; stroke-width: 1.3; stroke-dasharray: 3 4; pointer-events: none; }
+.acciones-del-dia .accion-fila { flex-direction: column; gap: 10px; }
+.acciones-del-dia > h4 { margin: 12px 0; color: #193b50; }
+.acciones-del-dia > p { color: #667e90; font-size: 12px; }
+.acciones-error { margin-bottom: 16px; }
+@media (max-width: 600px) {
+  .gestion-acciones { padding: 18px; }
+  .gestion-acciones .seccion-cabecera, .accion-fila { flex-direction: column; }
+  .accion-botones { width: 100%; }
+}
+
+/* Evolución compartida: altura acotada y detalles progresivos. */
+.panel-evolucion { margin-top: 18px; padding: 24px; overflow: hidden; }
+.evolucion-cabecera { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 22px; }
+.evolucion-cabecera h2 { margin: 0 0 5px; color: #193b50; font-size: 18px; letter-spacing: -.025em; }
+.evolucion-cabecera .metricas-periodo { font-size: 12px; }
+.evolucion-cliente .metricas-filtros { grid-template-columns: minmax(250px, 1fr) 150px 150px auto; padding: 14px 18px; gap: 12px; }
+.evolucion-cliente .metricas-filtros-rapidos { grid-column: auto; align-self: center; gap: 3px; }
+.evolucion-cliente .metricas-filtro-rapido { border-color: transparent; background: transparent; font-size: 11px; }
+.evolucion-cliente .metricas-filtro-rapido[aria-pressed='true'] { background: #eaf4f5; color: #137d8a; }
+.evolucion-cliente .metricas-filtros input { min-height: 35px; padding: 6px 8px; font-size: 12px; }
+.evolucion-cliente .metricas-filtros label { margin-bottom: 4px; font-weight: 500; }
+.evolucion-cliente .metricas-filtros > .boton { min-height: 35px; padding: 8px 12px; font-size: 11px; }
+.panel-evolucion .metricas-diario { display: block; }
+.panel-evolucion .metricas-diario-grafico { height: 210px; }
+.panel-evolucion .metricas-leyenda { display: flex; gap: 20px; margin: 12px 0 0; font-size: 11px; }
+.panel-evolucion .metricas-leyenda > span { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.panel-evolucion .metricas-leyenda i, .evolucion-cifra-dia i, .evolucion-referencia i { width: 7px; height: 7px; flex: none; border-radius: 50%; }
+.panel-evolucion .metricas-leyenda small { color: #718494; font-size: 10px; font-weight: 400; }
+.evolucion-tendencia { border: 0; padding: 4px 0; background: none; color: #60798b; font: inherit; font-size: 11px; cursor: pointer; }
+.evolucion-tendencia[aria-pressed='true'] { color: #137d8a; }
+.evolucion-referencia { display: flex; align-items: center; gap: 6px; color: #8b7358; font-size: 10px; margin: 10px 0 0; }
+.evolucion-referencia i { background: #bd8d50; }
+.evolucion-grilla { stroke: #edf2f5; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.panel-evolucion .metricas-diario-linea { stroke-width: 2; }
+.panel-evolucion .metricas-diario-regresion { stroke-width: 1; opacity: .4; }
+.panel-evolucion .metricas-diario-punto-activo { stroke: #fff; stroke-width: 1.5; }
+.panel-evolucion .metricas-diario-seleccion { stroke: #d1dde4; }
+.panel-evolucion .accion-marcador { top: 3px; width: 22px; height: 22px; border-radius: 50%; font-size: 11px; background: #fff5e6; color: #98601c; border: 1px solid #edcfaa; }
+.panel-evolucion .accion-marcador[aria-pressed='true'] { background: #a77032; color: white; }
+.panel-evolucion .accion-marcador-linea { stroke: #c7a97c; stroke-width: 1; opacity: .65; }
+.panel-evolucion .acciones-selector-periodo { margin: 10px 0; font-size: 11px; }
+.panel-evolucion .metricas-diario-ayuda { margin-top: 10px; }
+.panel-evolucion .metricas-diario-detalle { padding: 0; border: 0; margin-top: 18px; }
+.evolucion-resumen-dia { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 14px 0; border-top: 1px solid #edf2f5; }
+.evolucion-resumen-dia h3 { margin: 0 auto 0 0; color: #314e61; font-weight: 600; font-size: 12px; }
+.evolucion-cifra-dia { display: flex; align-items: center; gap: 7px; color: #60798b; font-size: 11px; }
+.evolucion-cifra-dia strong { color: #243f52; font-size: 17px; font-weight: 650; }
+.evolucion-cifra-dia small { font-size: 10px; color: #8496a3; }
+.panel-evolucion .acciones-del-dia { padding: 0; margin: 0; border: 0; }
+.panel-evolucion .acciones-del-dia > h4 { font-size: 11px; font-weight: 600; margin: 10px 0; }
+.panel-evolucion .acciones-del-dia > p { margin: 5px 0 12px; font-size: 11px; }
+.panel-evolucion .acciones-del-dia .acciones-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 12px; }
+.panel-evolucion .acciones-del-dia .accion-fila { padding: 14px; border: 1px solid #e5ecef; border-radius: 8px; }
+.panel-evolucion .acciones-del-dia .accion-fila time { display: none; }
+.panel-evolucion .acciones-del-dia .accion-fila h4 { margin: 0 0 5px; font-size: 12px; }
+.panel-evolucion .acciones-del-dia .accion-fila p { font-size: 11px; }
+.panel-evolucion .acciones-del-dia .accion-botones .boton { padding: 5px 8px; font-size: 10px; }
+.evolucion-detalle-dia { padding-top: 12px; border-top: 1px solid #edf2f5; }
+.evolucion-detalle-dia summary { color: #60798b; font-size: 11px; cursor: pointer; }
+.evolucion-grupos-dia { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 16px; }
+.evolucion-grupos-dia > section > h4 { font-size: 12px; margin: 0 0 10px; }
+.evolucion-grupos-dia .metricas-diario-destacado strong { font-size: 24px; }
+.pagina-acciones .gestion-acciones { margin-top: 22px; }
+.acciones-cabecera-pagina { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
+.acciones-cabecera-pagina > .boton { flex-shrink: 0; }
+.panel-evolucion .acciones-del-dia > summary { padding: 10px 0; color: #60798b; font-size: 11px; cursor: pointer; }
+.acciones-total { margin: 12px 0 0; color: #8496a3; font-size: 11px; }
+.accion-detalles summary { color: #60798b; font-size: 11px; cursor: pointer; margin-top: 7px; }
+.gestion-acciones .accion-fila { padding: 16px 0; }
+.gestion-acciones .accion-fila h4 { font-size: 13px; }
+@media (max-width: 1100px) {
+  .evolucion-cliente .metricas-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
+  .evolucion-cliente .metricas-filtros-rapidos { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .acciones-cabecera-pagina { flex-direction: column; align-items: flex-start; }
+  .panel-evolucion { padding: 17px; }
+  .evolucion-cabecera { align-items: flex-start; margin-bottom: 18px; }
+  .evolucion-cabecera h2 { font-size: 16px; }
+  .evolucion-cliente .metricas-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; gap: 10px; }
+  .evolucion-cliente .metricas-filtros > .boton { grid-column: 1 / -1; }
+  .panel-evolucion .metricas-diario-encabezado { flex-direction: row; }
+  .panel-evolucion .metricas-diario-encabezado strong { font-size: 12px; }
+  .panel-evolucion .metricas-diario-encabezado div > span { display: none; }
+  .panel-evolucion .metricas-diario-grafico { height: 190px; }
+  .panel-evolucion .acciones-del-dia .acciones-lista, .evolucion-grupos-dia { grid-template-columns: minmax(0, 1fr); }
+  .evolucion-resumen-dia { gap: 12px; }
+  .evolucion-resumen-dia h3 { width: 100%; }
+  .evolucion-cifra-dia { gap: 5px; }
+}
+
 .analisis-grupos > section { margin-top: 28px; }
 .analisis-grupos > section + section { border-top: 1px solid #dce8eb; padding-top: 24px; }
 .informe-grupo > h2 { color: #21495c; border-bottom: 1px solid #b7ced7; padding-bottom: 8px; }

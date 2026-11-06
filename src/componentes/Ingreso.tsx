@@ -35,24 +35,25 @@ export function Ingreso({ alIngresar }: { alIngresar: (cuenta: DatosCuenta) => v
         <Marca />
         <div className="ingreso-relato">
           <div className="sobrelinea sobrelinea-clara">ESPACIO DE TRABAJO GEO</div>
-          <h1>Entendé cómo se construye la presencia de cada marca.</h1>
+          <h1>Entendé tu presencia en IA. Decidí tu próximo paso.</h1>
           <p>
-            Organizá clientes, temas y consultas desde un solo lugar. Cada paso queda bajo el
-            control de tu equipo.
+            Organizá tus clientes y consultas, medí las menciones de cada marca y seguí a sus
+            competidores. Toda la información para orientar tu estrategia, en un solo lugar.
           </p>
-          <div className="ingreso-pasos" aria-label="Flujo disponible">
-            <span>
-              <b>01</b> Clientes
-            </span>
-            <i />
-            <span>
-              <b>02</b> Temas
-            </span>
-            <i />
-            <span>
-              <b>03</b> Consultas
-            </span>
-          </div>
+          <ul className="ingreso-funciones" aria-label="Qué podés hacer en Gelaia">
+            <li><b aria-hidden="true">01</b><div>
+              <strong>Métricas para entender dónde estás</strong>
+              <p>Explorá la evolución de tu marca, sus citas y su presencia frente a competidores.</p>
+            </div></li>
+            <li><b aria-hidden="true">02</b><div>
+              <strong>Análisis semanales para mirar hacia adelante</strong>
+              <p>Encontrá hallazgos y recomendaciones basados en las respuestas analizadas.</p>
+            </div></li>
+            <li><b aria-hidden="true">03</b><div>
+              <strong>Acciones que quedan en tu historia</strong>
+              <p>Registrá tus avances y consultalos junto al gráfico de evolución de tu marca.</p>
+            </div></li>
+          </ul>
         </div>
         <div className="ingreso-pie">
           GELAIA <span>·</span> PLATAFORMA PARA AGENCIAS

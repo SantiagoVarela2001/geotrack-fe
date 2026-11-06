@@ -11,6 +11,7 @@ type NombreIcono =
   | 'volver'
   | 'cerrar'
   | 'check'
+  | 'acciones'
   | 'editar'
   | 'documento'
   | 'capas'
@@ -72,6 +73,13 @@ export function Icono({
     volver: <path d="M19 12H5m6 6-6-6 6-6" />,
     cerrar: <path d="M5 5 19 19M19 5 5 19" />,
     check: <path d="m4 12 5 5L20 6" />,
+    acciones: (
+      <>
+        <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+        <rect x="9" y="2" width="6" height="4" rx="1" />
+        <path d="m8 11 1 1 2-2m2 1h3m-8 6 1 1 2-2m2 1h3" />
+      </>
+    ),
     editar: (
       <>
         <path d="m4 16-.5 4.5L8 20l11-11-4-4L4 16Z" />
@@ -159,9 +167,9 @@ export function Marca({
 }) {
   return (
     <span className={`marca ${compacta ? 'marca-compacta' : ''} ${sobreClaro ? 'marca-sobre-claro' : ''}`}>
-      <span className="marca-icono" aria-hidden="true">
-        <img src={sobreClaro ? '/icono-sin-fondo.png' : '/icono-fondo-blanco.png'} alt="" />
-      </span>
+      {!sobreClaro && <span className="marca-icono" aria-hidden="true">
+        <img src="/icono-fondo-blanco.png" alt="" />
+      </span>}
       {sobreClaro ? (
         <span className="marca-logotipo">
           <img src="/logo-completo.png" alt="Gelaia" />
