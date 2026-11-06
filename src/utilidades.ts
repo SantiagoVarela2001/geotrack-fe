@@ -1,5 +1,17 @@
+const fechaHoraArgentina = new Intl.DateTimeFormat('es-AR', {
+  dateStyle: 'long', timeStyle: 'short', hourCycle: 'h23', timeZone: 'America/Argentina/Buenos_Aires',
+})
+
+/** Presenta los instantes ISO del servidor en hora argentina y conserva los valores inválidos. */
 export function obtenerMensajeError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Ocurrió un error inesperado.'
+  const mensaje = error instanceof Error ? error.message : 'Ocurrió un error inesperado.'
+  return mensaje.replace(
+    /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})\b/g,
+    (valor) => {
+      const fecha = new Date(valor)
+      return Number.isNaN(fecha.getTime()) ? valor : fechaHoraArgentina.format(fecha)
+    },
+  )
 }
 
 export function tienePermiso(permisos: string[], permiso: string): boolean {
