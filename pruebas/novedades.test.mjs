@@ -8,16 +8,18 @@ const expiracion = Date.parse('2026-11-11T00:00:00-03:00')
 const lectora = { ...cuenta, permisos: ['CONSULTAS_VER'] }
 const editora = { ...cuenta, permisos: ['CONSULTAS_VER', 'CONSULTAS_EDITAR', 'ANALISIS_SEMANALES_VER'] }
 
-test('las cinco novedades están vigentes durante una semana desde el 4 de noviembre', () => {
+test('cada novedad está vigente una semana desde su publicación', () => {
+  const nuevaPublicacion = Date.parse('2026-11-06T00:00:00-03:00')
+  const nuevaExpiracion = Date.parse('2026-11-13T00:00:00-03:00')
   assert.equal(obtenerNovedadesVigentes(editora, publicacion - 1).length, 0)
   assert.equal(obtenerNovedadesVigentes(editora, publicacion).length, 5)
-  assert.equal(obtenerNovedadesVigentes(editora, expiracion - 1).length, 5)
-  assert.equal(obtenerNovedadesVigentes(editora, expiracion).length, 0)
+  assert.equal(obtenerNovedadesVigentes(editora, nuevaPublicacion).length, 6)
+  assert.equal(obtenerNovedadesVigentes(editora, expiracion - 1).length, 6)
+  assert.deepEqual(obtenerNovedadesVigentes(editora, expiracion).map((n) => n.id), ['contexto-agente-analisis-semanal'])
+  assert.equal(obtenerNovedadesVigentes(editora, nuevaExpiracion).length, 0)
   for (const novedad of novedades) {
-    assert.equal(Date.parse(novedad.publicadaEn), publicacion)
-    assert.equal(Date.parse(novedad.expiraEn), expiracion)
+    assert.equal(Date.parse(novedad.expiraEn) - Date.parse(novedad.publicadaEn), 7 * 24 * 60 * 60 * 1000)
   }
-  assert.equal(expiracion - publicacion, 7 * 24 * 60 * 60 * 1000)
 })
 
 test('las novedades respetan los permisos y el tipo de cuenta', () => {
@@ -31,20 +33,26 @@ test('las novedades respetan los permisos y el tipo de cuenta', () => {
   assert.deepEqual(obtenerNovedadesVigentes({ ...editora, tipoCuenta: 'PLATAFORMA', organizacionUuid: null }, publicacion).map((n) => n.id),
     ['reconocimiento-competidores-dominios-citas', 'competidores-detectados-informe-semanal', 'consultas-informes-con-sin-marca'])
   assert.equal(obtenerNovedadesVigentes({ ...cuenta, permisos: ['CONSULTAS_CAMBIAR_TIPO'] }, publicacion).length, 0)
+  const hoy = Date.parse('2026-11-06T12:00:00-03:00')
+  assert.equal(obtenerNovedadesVigentes({ ...cuenta, permisos: ['ANALISIS_SEMANALES_VER'] }, hoy)[0].id,
+    'contexto-agente-analisis-semanal')
+  assert.equal(obtenerNovedadesVigentes(lectora, hoy).some((n) => n.id === 'contexto-agente-analisis-semanal'), false)
 })
 
-test('el catálogo conserva la mejora de competidores y recupera las cuatro novedades anteriores', () => {
+test('el catálogo agrega la mejora del agente semanal y conserva las novedades anteriores', () => {
   assert.deepEqual(novedades.map((n) => n.id), [
+    'contexto-agente-analisis-semanal',
     'reconocimiento-competidores-dominios-citas',
     'competidores-detectados-informe-semanal',
     'consultas-informes-con-sin-marca',
     'corregir-clasificacion-consulta',
     'editar-consultas-borrador',
   ])
-  assert.equal(novedades[0].titulo, 'Mejor reconocimiento de competidores')
-  assert.match(novedades[0].descripcion, /nombre, dominio y subdominio/)
-  assert.match(novedades[0].descripcion, /fuentes citadas también cuentan en sus métricas/)
-  assert.match(novedades[0].descripcion, /resultados anteriores se conservan/)
+  const competidores = novedades.find((n) => n.id === 'reconocimiento-competidores-dominios-citas')
+  assert.equal(competidores.titulo, 'Mejor reconocimiento de competidores')
+  assert.match(competidores.descripcion, /nombre, dominio y subdominio/)
+  assert.match(competidores.descripcion, /fuentes citadas también cuentan en sus métricas/)
+  assert.match(competidores.descripcion, /resultados anteriores se conservan/)
   assert.equal(obtenerNovedadesVigentes(lectora, Date.parse('2026-11-02T12:00:00-03:00')).length, 0)
 })
 

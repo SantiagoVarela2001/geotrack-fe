@@ -10,8 +10,17 @@ export interface Novedad {
   tiposCuenta?: DatosCuenta['tipoCuenta'][]
 }
 
-// Vigentes durante una semana desde el 4 de noviembre, con horario de Argentina.
+// Cada novedad permanece vigente una semana, con horario de Argentina.
 export const novedades: Novedad[] = [
+  {
+    id: 'contexto-agente-analisis-semanal',
+    titulo: 'Tu agente semanal, más enfocado en lo que importa',
+    descripcion:
+      'Mejoramos el contexto que recibe tu agente semanal para concentrar el análisis en la información relevante de tu marca. Una lectura más clara de tu presencia en IA, con hallazgos y recomendaciones mejor enfocados para ayudarte a decidir dónde poner el próximo esfuerzo.',
+    publicadaEn: '2026-11-06T00:00:00-03:00',
+    expiraEn: '2026-11-13T00:00:00-03:00',
+    permisos: ['ANALISIS_SEMANALES_VER'],
+  },
   {
     id: 'reconocimiento-competidores-dominios-citas',
     titulo: 'Mejor reconocimiento de competidores',
