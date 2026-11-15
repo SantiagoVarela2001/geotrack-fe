@@ -13,6 +13,15 @@ export interface Novedad {
 // Cada novedad permanece vigente una semana, con horario de Argentina.
 export const novedades: Novedad[] = [
   {
+    id: 'exportar-historico-consultas-excel',
+    titulo: 'Exportá el histórico de tus consultas a Excel',
+    descripcion:
+      'Desde la ficha de cada cliente, usá «Exportar histórico» para descargar en Excel las preguntas, respuestas y menciones de tu marca. Elegí la fecha de inicio o usá «Últimos 15 días» y «Últimos 30 días» para exportar hasta hoy. Podés cerrar la ventana mientras se prepara el archivo y volver para descargarlo.',
+    publicadaEn: '2026-11-15T00:00:00-03:00',
+    expiraEn: '2026-11-22T00:00:00-03:00',
+    permisos: ['CONSULTAS_VER'],
+  },
+  {
     id: 'acciones-realizadas-evolucion-marca',
     titulo: 'Tus acciones, junto a la evolución de tu marca',
     descripcion:

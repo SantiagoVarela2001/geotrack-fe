@@ -45,8 +45,9 @@ test('las novedades respetan los permisos y el tipo de cuenta', () => {
   assert.equal(obtenerNovedadesVigentes(lectora, hoy).some((n) => n.id === 'acciones-realizadas-evolucion-marca'), false)
 })
 
-test('el catálogo agrega la mejora del agente semanal y conserva las novedades anteriores', () => {
+test('el catálogo incluye la exportación de consultas y conserva las novedades anteriores', () => {
   assert.deepEqual(novedades.map((n) => n.id), [
+    'exportar-historico-consultas-excel',
     'acciones-realizadas-evolucion-marca',
     'contexto-agente-analisis-semanal',
     'reconocimiento-competidores-dominios-citas',
