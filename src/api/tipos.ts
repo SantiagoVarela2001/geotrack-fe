@@ -28,6 +28,27 @@ export type Permiso =
   | 'CONSULTAS_ELIMINAR'
   | 'CONSULTAS_EJECUTAR'
 
+export interface SolicitudExportacionConsultas {
+  desde: string
+  hasta: string
+}
+
+export interface DatosExportacionConsultas {
+  clienteUuid: string
+  procesoUuid: string
+  estado: 'PENDIENTE' | 'PROCESANDO' | 'FINALIZADO' | 'FALLIDO' | 'SIN_DATOS' | 'VENCIDO'
+  desde: string
+  hasta: string
+  mensaje: string | null
+  archivoUuid: string | null
+  archivoDesde: string | null
+  archivoHasta: string | null
+  fechaGeneracion: string | null
+  venceEn: string | null
+  cantidadFilas: number | null
+  urlDescarga: string | null
+}
+
 export interface RespuestaAcceso {
   tokenAcceso: string
   tipoToken: 'Bearer'

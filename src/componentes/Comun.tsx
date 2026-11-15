@@ -14,6 +14,7 @@ type NombreIcono =
   | 'acciones'
   | 'editar'
   | 'documento'
+  | 'descargar'
   | 'capas'
   | 'estrella'
   | 'escudo'
@@ -27,6 +28,7 @@ type NombreIcono =
   | 'desplegar'
   | 'megafono'
 
+/** Dibuja los iconos comunes con el mismo trazo y tamaño en todas las acciones. */
 export function Icono({
   nombre,
   tamano = 20,
@@ -86,6 +88,7 @@ export function Icono({
         <path d="m13 7 4 4" />
       </>
     ),
+    descargar: <><path d="M12 3v12m-5-5 5 5 5-5" /><path d="M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" /></>,
     documento: (
       <>
         <path d="M6 2h8l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" />

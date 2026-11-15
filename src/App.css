@@ -4815,3 +4815,38 @@
   }
   .informe-pie span:last-child { margin-left: auto; }
 }
+
+/* Integra el acceso al histórico con la misma paleta y proporciones de las acciones del cliente. */
+.detalle-accion-exportar {
+  border-color: #cbe5d6;
+  background: #f4faf6;
+  color: #21634c;
+}
+.detalle-accion-exportar:not(:disabled):hover {
+  border-color: #aad9c3;
+  background: #ecf8f1;
+  color: #1c6a50;
+}
+.dialogo-exportacion { width: 540px; }
+.exportacion-periodos { display: flex; flex-wrap: wrap; gap: 8px; }
+.exportacion-periodos .boton[aria-pressed='true'] {
+  border-color: #aad9c3;
+  background: #ecf8f1;
+  color: #1c6a50;
+}
+.exportacion-icono {
+  border-color: #cbe5d6;
+  background: #f4faf6;
+  color: #21634c;
+}
+.exportacion-resultado {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid #d7e5dd;
+  border-radius: 9px;
+  background: #f8fbf9;
+}
+.exportacion-resultado > strong { font-size: 14px; }
+.exportacion-resultado > .boton { justify-self: start; }

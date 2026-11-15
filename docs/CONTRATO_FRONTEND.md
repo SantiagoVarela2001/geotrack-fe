@@ -2,6 +2,48 @@
 
 Contrato F02 actualizado al 1 de noviembre de 2026; las demás secciones conservan su documentación previa. Este documento describe la API implementada y los contratos acordados para la edición de consultas en borrador, los cambios de estado, la gestión de competidores, el análisis semanal manual y los gastos estimados de IA. [CONTEXTO_PROYECTO.md](CONTEXTO_PROYECTO.md) explica la visión del producto y también contiene funciones futuras; no debe usarse como lista de endpoints disponibles.
 
+## Exportación del histórico de consultas a Excel
+
+Las tres rutas requieren `CONSULTAS_VER`, JWT y acceso al cliente por organización; SYSADMIN conserva la visibilidad global. También pueden consultarse históricos de clientes archivados. Se exportan únicamente ejecuciones activas `FINALIZADO` con normalización `FINALIZADA`, resultado activo y respuesta no vacía. Incluye consultas y temas dados de baja, usando texto y tema históricos. Los registros antiguos sin `diaEjecucion` usan el día argentino de `fechaInicio` o, si falta, de `fechaCreacion`.
+
+| Método y ruta | Resultado |
+| --- | --- |
+| `POST /api/clientes-monitoreados/{clienteUuid}/consultas/exportacion` | Recibe `{"desde":"2026-11-01","hasta":"2026-11-15"}`. Fechas obligatorias, inclusivas y ordenadas. Devuelve `202` al iniciar o recuperar el mismo trabajo en curso, o `200` al reutilizar un archivo equivalente. |
+| `GET /api/clientes-monitoreados/{clienteUuid}/consultas/exportacion` | Devuelve el seguimiento único del cliente o `204` si todavía no existe. |
+| `GET /api/clientes-monitoreados/{clienteUuid}/consultas/exportacion/archivos/{archivoUuid}` | Descarga autenticada de la versión exacta: MIME XLSX, `Content-Disposition: attachment` y `Cache-Control: no-store`. |
+
+El POST y el GET devuelven `DatosExportacionConsultas`:
+
+```json
+{
+  "clienteUuid": "11111111-1111-4111-8111-111111111111",
+  "procesoUuid": "22222222-2222-4222-8222-222222222222",
+  "estado": "FINALIZADO",
+  "desde": "2026-11-01",
+  "hasta": "2026-11-15",
+  "mensaje": null,
+  "archivoUuid": "22222222-2222-4222-8222-222222222222",
+  "archivoDesde": "2026-11-01",
+  "archivoHasta": "2026-11-15",
+  "fechaGeneracion": "2026-11-15T15:00:00Z",
+  "venceEn": "2026-11-16T03:00:00Z",
+  "cantidadFilas": 120,
+  "urlDescarga": "/api/clientes-monitoreados/11111111-1111-4111-8111-111111111111/consultas/exportacion/archivos/22222222-2222-4222-8222-222222222222"
+}
+```
+
+Estados: `PENDIENTE`, `PROCESANDO`, `FINALIZADO`, `FALLIDO`, `SIN_DATOS`, `VENCIDO`. El frontend consulta periódicamente solo mientras está abierto el seguimiento de un proceso pendiente o procesando, y detiene la consulta al terminar o cerrar la vista. Se puede cerrar el diálogo y recuperar el proceso por GET al volver. El proceso asíncrono tiene un plazo de treinta minutos; se comprueba al leer o solicitar y al avanzar sus lotes, sin una tarea periódica adicional.
+
+Hay una fila de seguimiento y un único Excel terminado por cliente, compartidos entre sus usuarios autorizados. `desde` y `hasta` describen la solicitud actual; `archivoDesde` y `archivoHasta` describen la descarga anterior que puede conservarse durante un reemplazo o después de un fallo. Los campos de archivo son `null` cuando no hay descarga vigente. No debe confundirse el archivo previo con el resultado de una nueva solicitud.
+
+El hash usa cliente y fechas ISO. Mismos filtros y archivo existente vigente reutilizan el resultado sin comprobar nuevas ejecuciones. Otros filtros durante una generación responden `409`. Un rango sin resultados termina `SIN_DATOS`, sin crear una descarga vacía. Si falla o queda sin resultados un reemplazo, se conserva el archivo anterior mientras siga vigente. Un archivo perdido se regenera mediante POST aunque los filtros sean iguales.
+
+El Excel contiene `consulta_id`, `tema`, `fecha`, `pregunta`, `respuesta`, `marca_mencionada`, `posicion_marca`, `evidencia_marca`, sin modelos, tokens ni costos. Ordena por consulta y fecha histórica, con un identificador como desempate. Alterna colores únicamente en `consulta_id`, fija encabezados y primera columna, habilita filtros y ajusta los textos. Las respuestas extensas continúan en `respuesta_continuacion_1`, etc., sin recortes ni filas duplicadas. Si se llena una hoja, continúa en otra del mismo libro. No se exportan competidores ni fuentes en esta versión.
+
+La vigencia termina a las 00:00 de Argentina del día siguiente a la finalización. Una generación que termina después de medianoche vence al terminar ese nuevo día. La descarga devuelve `410` desde el vencimiento o si la versión fue reemplazada, aunque el borrado físico todavía esté pendiente. El frontend debe tratar la descarga como binaria con el mismo JWT y renovación de sesión que las otras rutas; no abrir la URL privada como enlace sin autenticación.
+
+Errores adicionales: `400` por fechas ausentes, inválidas o rango invertido; `401` sin sesión; `403` sin permiso; `404` por cliente ajeno o inexistente; `503` si no se puede abrir la descarga. Una generación interrumpida al reiniciar queda `FALLIDO` y puede solicitarse de nuevo; el archivo previo conserva su vigencia.
+
 ## Qué puede construir el frontend ahora
 
 - Inicio y cierre de sesión, renovación del acceso y consulta de la cuenta actual.

@@ -7,6 +7,8 @@ import type {
   DatosCuenta,
   DatosEjecucionConsulta,
   DatosGeneracionConsultas,
+  DatosExportacionConsultas,
+  SolicitudExportacionConsultas,
   DatosGastoIaOrganizacion,
   DatosMetricasCliente,
   DatosOrganizacion,
@@ -120,6 +122,7 @@ async function solicitar<T>(
   protegida = true,
   reintento = true,
   ignorarRespuesta = false,
+  respuestaBinaria = false,
 ): Promise<T> {
   const tokenDeSolicitud = tokenAcceso
   const encabezados = new Headers(opciones.headers)
@@ -145,7 +148,7 @@ async function solicitar<T>(
   if (respuesta.status === 401 && protegida && reintento) {
     try {
       if (!tokenAcceso || tokenAcceso === tokenDeSolicitud) await renovarAcceso()
-      return solicitar<T>(ruta, opciones, true, false, ignorarRespuesta)
+      return solicitar<T>(ruta, opciones, true, false, ignorarRespuesta, respuestaBinaria)
     } catch {
       limpiarSesion()
       alExpirarSesion?.()
@@ -158,7 +161,7 @@ async function solicitar<T>(
   }
   if (!respuesta.ok) throw await crearError(respuesta)
   if (respuesta.status === 204 || ignorarRespuesta) return undefined as T
-  return (await respuesta.json()) as T
+  return (respuestaBinaria ? await respuesta.blob() : await respuesta.json()) as T
 }
 
 export const api = {
@@ -276,6 +279,26 @@ export const api = {
       `/api/clientes-monitoreados/${encodeURIComponent(clienteUuid)}/acciones/${encodeURIComponent(accionUuid)}`,
       { method: 'DELETE' },
     ),
+  },
+  exportaciones: {
+    /** Inicia la preparación o recupera la descarga correspondiente al mismo período. */
+    iniciar: (clienteUuid: string, datos: SolicitudExportacionConsultas, signal?: AbortSignal) =>
+      solicitar<DatosExportacionConsultas>(
+        '/api/clientes-monitoreados/' + encodeURIComponent(clienteUuid) + '/consultas/exportacion',
+        { method: 'POST', body: JSON.stringify(datos), signal },
+      ),
+    /** Un 204 indica que todavía no se solicitó una exportación para este cliente. */
+    async obtener(clienteUuid: string, signal?: AbortSignal): Promise<DatosExportacionConsultas | null> {
+      return await solicitar<DatosExportacionConsultas | undefined>(
+        '/api/clientes-monitoreados/' + encodeURIComponent(clienteUuid) + '/consultas/exportacion', { signal },
+      ) ?? null
+    },
+    /** Usa la misma sesión privada para recibir los bytes del Excel sin interpretar JSON. */
+    descargar: (clienteUuid: string, archivoUuid: string, signal?: AbortSignal) =>
+      solicitar<Blob>(
+        '/api/clientes-monitoreados/' + encodeURIComponent(clienteUuid) + '/consultas/exportacion/archivos/' + encodeURIComponent(archivoUuid),
+        { signal }, true, true, false, true,
+      ),
   },
   metricas: {
     obtener: (clienteUuid: string, desde: string, hasta: string) =>

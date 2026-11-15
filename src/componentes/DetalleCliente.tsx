@@ -30,6 +30,7 @@ import { ConfirmarTipoConsulta } from './ConfirmarTipoConsulta'
 import { EditarConsulta } from './EditarConsulta'
 import { FilaConsulta } from './FilaConsulta'
 import { GeneracionConsultas } from './GeneracionConsultas'
+import { ExportarConsultas } from './ExportarConsultas'
 import { ProgresoEjecuciones, type EnvioConsulta } from './ProgresoEjecuciones'
 import { VistaConsultasAgrupadas } from './VistaConsultasAgrupadas'
 
@@ -42,6 +43,7 @@ const consultaInicial: BorradorConsulta = {
 
 const pausaParaMostrarResultadoMs = 800
 
+/** Reúne la configuración del cliente y sus accesos a métricas, acciones e histórico. */
 export function DetalleCliente({
   clienteUuid,
   cuenta,
@@ -953,7 +955,7 @@ export function DetalleCliente({
                   <p>Configuración de marca y consultas de seguimiento.</p>
                 </div>
               </div>
-              {(puedeAccederAcciones || puedeCambiarEstadoCliente || (puedeVerConsultas && cliente.estado === 'ACTIVO')) && (
+              {(puedeAccederAcciones || puedeCambiarEstadoCliente || puedeVerConsultas) && (
                 <div className="detalle-acciones">
                   {puedeVerConsultas && cliente.estado === 'ACTIVO' && (
                     <button
@@ -965,6 +967,7 @@ export function DetalleCliente({
                       <span>Ver métricas GEO</span>
                     </button>
                   )}
+                  <ExportarConsultas key={clienteUuid} clienteUuid={clienteUuid} permitido={puedeVerConsultas} />
                   {puedeAccederAcciones && (
                     <button className="boton boton-secundario boton-chico detalle-accion detalle-accion-acciones" type="button"
                       onClick={alVerAcciones}>
